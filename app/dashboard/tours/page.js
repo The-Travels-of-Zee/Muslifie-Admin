@@ -19,7 +19,10 @@ import {
   LanguageIcon,
   HeartIcon,
   ShieldCheckIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  PauseCircleIcon,
+  ArchiveBoxIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
@@ -119,12 +122,18 @@ const ToursManagement = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
+      case 'draft':
+        return <DocumentTextIcon className="w-4 h-4" />;
       case 'pending_review':
         return <ClockIcon className="w-4 h-4" />;
       case 'active':
         return <CheckCircleIcon className="w-4 h-4" />;
+      case 'paused':
+        return <PauseCircleIcon className="w-4 h-4" />;
       case 'rejected':
         return <XCircleIcon className="w-4 h-4" />;
+      case 'archived':
+        return <ArchiveBoxIcon className="w-4 h-4" />;
       default:
         return <InformationCircleIcon className="w-4 h-4" />;
     }
@@ -160,7 +169,8 @@ const ToursManagement = () => {
           else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
           
           // Increase new status count
-          if (action === 'active') newStats.active++;
+          if (action === 'pending_review') newStats.pending++;
+          else if (action === 'active') newStats.active++;
           else if (action === 'rejected') newStats.rejected++;
         }
         
@@ -168,7 +178,7 @@ const ToursManagement = () => {
       });
       
       setSelectedTour(null);
-      alert(`Tour ${action}ed successfully!`);
+      alert(`Tour status changed to ${action} successfully!`);
       
       // Background cache refresh without loading state
       setTimeout(() => {
@@ -176,8 +186,8 @@ const ToursManagement = () => {
       }, 1000);
       
     } catch (error) {
-      console.error(`Error ${action}ing tour:`, error);
-      alert(`Failed to ${action} tour. Please try again.`);
+      console.error(`Error updating tour status:`, error);
+      alert(`Failed to update tour status. Please try again.`);
     } finally {
       setProcessingAction(null);
     }
@@ -189,7 +199,35 @@ const ToursManagement = () => {
 
   const TourModal = ({ tour, onClose }) => {
     const [actionNotes, setActionNotes] = useState('');
-    const [rejectionReason, setRejectionReason] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState(tour.status);
+    const [statusReason, setStatusReason] = useState('');
+
+    // All available statuses
+    const allStatuses = [
+      { value: 'draft', label: 'Draft', color: 'text-gray-600', description: 'Tour is in draft mode' },
+      { value: 'pending_review', label: 'Pending Review', color: 'text-orange-600', description: 'Waiting for admin review' },
+      { value: 'active', label: 'Active', color: 'text-green-600', description: 'Live and accepting bookings' },
+      { value: 'paused', label: 'Paused', color: 'text-blue-600', description: 'Temporarily unavailable' },
+      { value: 'rejected', label: 'Rejected', color: 'text-red-600', description: 'Rejected and needs changes' },
+      { value: 'archived', label: 'Archived', color: 'text-purple-600', description: 'Permanently disabled' }
+    ];
+
+    const handleStatusChange = () => {
+      if (selectedStatus === tour.status) {
+        alert('Please select a different status to update.');
+        return;
+      }
+
+      // Require reason for certain status changes
+      const requiresReason = ['rejected', 'paused', 'archived'];
+      if (requiresReason.includes(selectedStatus) && !statusReason.trim()) {
+        alert(`Please provide a reason for changing status to ${selectedStatus}.`);
+        return;
+      }
+
+      const notes = statusReason.trim() || actionNotes.trim() || `Status changed to ${selectedStatus} by admin`;
+      handleAction(tour._id, selectedStatus, { reviewNotes: notes });
+    };
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -197,7 +235,7 @@ const ToursManagement = () => {
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
-                Tour Review
+                Tour Management
               </h2>
               <button
                 onClick={onClose}
@@ -325,14 +363,60 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* Admin Actions */}
-            {tour.status === 'pending_review' && (
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
-                  Review Actions
-                </h4>
-                
-                <div className="mb-4">
+            {/* Admin Status Management - NEW ENHANCED SECTION */}
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                Status Management
+              </h4>
+              
+              {/* Current Status Display */}
+              <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Current Status</p>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(tour.status)}`}>
+                      {getStatusIcon(tour.status)}
+                      <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
+                    </span>
+                  </div>
+                  {tour.reviewedAt && (
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Last Updated</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(tour.reviewedAt).toLocaleDateString()} at {new Date(tour.reviewedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Change Section */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Change Status To
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                  >
+                    {allStatuses.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedStatus && selectedStatus !== tour.status && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      {allStatuses.find(s => s.value === selectedStatus)?.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* General Admin Notes */}
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Admin Notes (Optional)
                   </label>
@@ -341,45 +425,70 @@ const ToursManagement = () => {
                     onChange={(e) => setActionNotes(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     rows="3"
-                    placeholder="Add notes for approval or general feedback..."
+                    placeholder="Add any general notes about this tour or status change..."
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                {/* Conditional Reason Field for Specific Statuses */}
+                {(['rejected', 'paused', 'archived'].includes(selectedStatus) && selectedStatus !== tour.status) && (
+                  <div>
+                    <label className="block text-sm font-medium text-red-700 mb-2">
+                      Reason for {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} (Required)
+                    </label>
+                    <textarea
+                      value={statusReason}
+                      onChange={(e) => setStatusReason(e.target.value)}
+                      className="w-full p-3 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      rows="3"
+                      placeholder={`Explain why this tour is being ${selectedStatus}...`}
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Action Button */}
+                {selectedStatus !== tour.status && (
                   <button
-                    onClick={() => handleAction(tour._id, 'active', { reviewNotes: actionNotes })}
+                    onClick={handleStatusChange}
                     disabled={processingAction === tour._id}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 ${
+                      selectedStatus === 'active' 
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : selectedStatus === 'rejected'
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : selectedStatus === 'paused'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : selectedStatus === 'archived'
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-gray-600 hover:bg-gray-700 text-white'
+                    }`}
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
-                    {processingAction === tour._id ? 'Processing...' : 'Approve Tour'}
+                    {processingAction === tour._id ? 'Processing...' : `Change Status to ${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)}`}
                   </button>
-                </div>
+                )}
 
-                <div className="border-t border-gray-200 pt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rejection Reason
-                  </label>
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3"
-                    rows="2"
-                    placeholder="Explain why this tour is being rejected..."
-                    style={{ fontFamily: 'Poppins, sans-serif' }}
-                  />
-                  <button
-                    onClick={() => handleAction(tour._id, 'rejected', { reviewNotes: rejectionReason })}
-                    disabled={processingAction === tour._id || !rejectionReason.trim()}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
-                    style={{ fontFamily: 'Poppins, sans-serif' }}
-                  >
-                    {processingAction === tour._id ? 'Processing...' : 'Reject Tour'}
-                  </button>
-                </div>
+                {selectedStatus === tour.status && (
+                  <div className="text-center py-3">
+                    <p className="text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      Select a different status to make changes
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Previous Review Notes Display */}
+              {(tour.adminReview?.reviewNotes || tour.reviewNotes || tour.rejectionReason) && (
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <h5 className="text-sm font-medium text-blue-900 mb-2">Previous Admin Notes:</h5>
+                  <p className="text-sm text-blue-800">
+                    {tour.adminReview?.reviewNotes || tour.reviewNotes || tour.rejectionReason}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -512,6 +621,8 @@ const ToursManagement = () => {
                 <option value="active">Active</option>
                 <option value="rejected">Rejected</option>
                 <option value="draft">Draft</option>
+                <option value="paused">Paused</option>
+                <option value="archived">Archived</option>
               </select>
 
               <select
@@ -654,7 +765,7 @@ const ToursManagement = () => {
                       className="flex items-center px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors"
                     >
                       <EyeIcon className="w-4 h-4 mr-1" />
-                      <span className="text-sm font-medium">Review</span>
+                      <span className="text-sm font-medium">Manage</span>
                     </button>
                   </td>
                 </tr>

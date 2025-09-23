@@ -8,7 +8,9 @@ import {
   EyeIcon,
   FunnelIcon,
   MagnifyingGlassIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  CreditCardIcon,
+  BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
 
 const WithdrawalManagement = () => {
@@ -115,6 +117,23 @@ const WithdrawalManagement = () => {
     }
   };
 
+  const getPaymentMethodDisplay = (withdrawal) => {
+    const method = withdrawal.withdrawalMethod || withdrawal.paymentMethod || 'bank';
+    switch (method) {
+      case 'stripe_connect':
+        return { label: 'Stripe Connect', icon: CreditCardIcon, color: 'text-purple-600' };
+      case 'bank':
+      case 'bank_transfer':
+        return { label: 'Bank Transfer', icon: BuildingLibraryIcon, color: 'text-blue-600' };
+      case 'wise':
+        return { label: 'Wise', icon: CreditCardIcon, color: 'text-green-600' };
+      case 'payoneer':
+        return { label: 'Payoneer', icon: CreditCardIcon, color: 'text-orange-600' };
+      default:
+        return { label: 'Bank Transfer', icon: BuildingLibraryIcon, color: 'text-blue-600' };
+    }
+  };
+
   const copyToClipboard = (text) => {
     if (text) {
       navigator.clipboard.writeText(text);
@@ -132,21 +151,28 @@ const WithdrawalManagement = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const handleAction = async (withdrawalId, action, notes = '') => {
+  const handleAction = async (withdrawalId, action, notes = '', transactionReference = '') => {
     setProcessingAction(withdrawalId);
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${withdrawalId}/${action}`, {
+      const endpoint = action === 'complete' ? 'complete' : action;
+      
+      const body = { 
+        adminNotes: notes
+      };
+      
+      if (action === 'complete' && transactionReference) {
+        body.transactionReference = transactionReference;
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${withdrawalId}/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          notes,
-          adminNotes: notes
-        })
+        body: JSON.stringify(body)
       });
 
       const result = await response.json();
@@ -154,7 +180,7 @@ const WithdrawalManagement = () => {
       if (result.success) {
         await fetchWithdrawals();
         setSelectedWithdrawal(null);
-        alert(`Withdrawal ${action} successfully!`);
+        alert(`Withdrawal ${action}d successfully!`);
       } else {
         alert(`Failed to ${action} withdrawal: ${result.message}`);
       }
@@ -168,7 +194,7 @@ const WithdrawalManagement = () => {
 
   const WithdrawalModal = ({ withdrawal, onClose }) => {
     const [actionNotes, setActionNotes] = useState('');
-    const [transactionId, setTransactionId] = useState('');
+    const [transactionReference, setTransactionReference] = useState('');
 
     // Extract user information from backend response
     const userInfo = withdrawal.user || {};
@@ -176,9 +202,14 @@ const WithdrawalManagement = () => {
     const userEmail = userInfo.email || 'No email';
     const userType = userInfo.type || 'user';
 
-    // Extract bank details from backend response
-    const bankDetails = withdrawal.bankDetails || {};
-    const hasBankDetails = bankDetails && Object.keys(bankDetails).length > 0;
+    // Extract payment details
+    const paymentDetails = withdrawal.paymentDetails || withdrawal.bankDetails || {};
+    const hasPaymentDetails = paymentDetails && Object.keys(paymentDetails).length > 0;
+    
+    // Get payment method info
+    const paymentMethod = getPaymentMethodDisplay(withdrawal);
+    const isStripeConnect = withdrawal.withdrawalMethod === 'stripe_connect';
+    const isBankTransfer = !isStripeConnect;
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -204,7 +235,7 @@ const WithdrawalManagement = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Reference</p>
                   <p className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    {withdrawal.reference || withdrawal.id}
+                    {withdrawal.reference || withdrawal.withdrawalReference || withdrawal.id}
                   </p>
                 </div>
                 <div>
@@ -212,6 +243,11 @@ const WithdrawalManagement = () => {
                   <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                     ${(withdrawal.amount || 0).toFixed(2)}
                   </p>
+                  {withdrawal.processingFee && (
+                    <p className="text-sm text-gray-600">
+                      Fee: ${withdrawal.processingFee.toFixed(2)} | Net: ${(withdrawal.amount - withdrawal.processingFee).toFixed(2)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Status</p>
@@ -222,9 +258,12 @@ const WithdrawalManagement = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Payment Method</p>
-                  <p className="font-medium text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    Bank Transfer
-                  </p>
+                  <div className="flex items-center">
+                    <paymentMethod.icon className={`w-5 h-5 mr-2 ${paymentMethod.color}`} />
+                    <p className="font-medium text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      {paymentMethod.label}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -252,80 +291,108 @@ const WithdrawalManagement = () => {
               </div>
             </div>
 
-            {/* Payment Details */}
-            {hasBankDetails ? (
+            {/* Payment Details - Only for Bank Transfers */}
+            {isBankTransfer && hasPaymentDetails ? (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-blue-900" style={{ fontFamily: 'Jost, sans-serif' }}>
-                    Payment Details for Processing
+                    Bank Transfer Details
                   </h3>
                   <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                    BANK TRANSFER
+                    MANUAL PROCESSING REQUIRED
                   </span>
                 </div>
 
                 <div className="bg-white rounded-xl p-4 border border-blue-200">
                   <h4 className="font-bold text-lg text-gray-900 mb-3">
-                    Bank Transfer Information
+                    Processing Instructions
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bankDetails.bankName && (
+                    {paymentDetails.bankName && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Bank Name</p>
                         <p className="text-lg font-bold text-gray-900 mt-1">
-                          {bankDetails.bankName}
+                          {paymentDetails.bankName}
                         </p>
                       </div>
                     )}
                     
-                    {(bankDetails.accountHolderName || userName) && (
+                    {(paymentDetails.accountHolderName || userName) && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Account Holder</p>
                         <p className="text-lg font-bold text-gray-900 mt-1">
-                          {bankDetails.accountHolderName || userName}
+                          {paymentDetails.accountHolderName || userName}
                         </p>
                       </div>
                     )}
                     
-                    {(bankDetails.accountNumber || bankDetails.accountNumberMasked) && (
-  <div className="bg-gray-50 p-3 rounded-lg">
-    <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Account Number</p>
-    <p className="text-lg font-bold text-gray-900 mt-1 font-mono tracking-wider">
-      {bankDetails.accountNumber || bankDetails.accountNumberMasked}
-    </p>
-    <div className="flex items-center justify-between mt-2">
-      <p className="text-xs text-green-600">
-        Full account number displayed for manual processing
-      </p>
-      <button
-        onClick={() => copyToClipboard(bankDetails.accountNumber || bankDetails.accountNumberMasked)}
-        className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors"
-      >
-        Copy
-      </button>
-    </div>
-  </div>
-)}
+                    {paymentDetails.accountNumber && (
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Account Number</p>
+                        <p className="text-lg font-bold text-gray-900 mt-1 font-mono tracking-wider">
+                          {paymentDetails.accountNumber}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="text-xs text-green-600">
+                            Use this for bank transfer
+                          </p>
+                          <button
+                            onClick={() => copyToClipboard(paymentDetails.accountNumber)}
+                            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {paymentDetails.routingNumber && (
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Routing Number</p>
+                        <p className="text-lg font-bold text-gray-900 mt-1 font-mono tracking-wider">
+                          {paymentDetails.routingNumber}
+                        </p>
+                        <button
+                          onClick={() => copyToClipboard(paymentDetails.routingNumber)}
+                          className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors mt-2"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-               
+              </div>
+            ) : isStripeConnect ? (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-purple-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    Stripe Connect Payment
+                  </h3>
+                  <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
+                    AUTOMATIC PROCESSING
+                  </span>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-purple-200">
+                  <p className="text-gray-700">
+                    This withdrawal uses Stripe Connect for automatic transfer. When approved, the payment will be processed immediately to the user's connected Stripe account.
+                  </p>
+                  {withdrawal.stripeConnect?.transferId && (
+                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                      <p className="text-sm font-semibold text-green-800">Transfer ID</p>
+                      <p className="font-mono text-green-900">{withdrawal.stripeConnect.transferId}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-red-900 mb-4">
                   Payment Details Not Available
                 </h3>
-                <div className="text-sm text-red-800 space-y-2">
-                  <p>No payment details found in the backend response.</p>
-                  <p>Available withdrawal data:</p>
-                  <ul className="list-disc ml-4">
-                    <li>Withdrawal ID: {withdrawal.id}</li>
-                    <li>Reference: {withdrawal.reference}</li>
-                    <li>Amount: ${withdrawal.amount}</li>
-                    <li>Status: {withdrawal.status}</li>
-                  </ul>
-                </div>
+                <p className="text-red-800">
+                  No payment details found for this withdrawal. Please contact the user for payment information.
+                </p>
               </div>
             )}
 
@@ -351,6 +418,14 @@ const WithdrawalManagement = () => {
                     </span>
                   </div>
                 )}
+                {withdrawal.completedAt && (
+                  <div className="flex items-center text-sm">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                    <span className="text-gray-600">
+                      Completed: {new Date(withdrawal.completedAt).toLocaleDateString()} at {new Date(withdrawal.completedAt).toLocaleTimeString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -366,12 +441,40 @@ const WithdrawalManagement = () => {
               </div>
             )}
 
-            {/* Actions for Pending */}
+            {/* Admin Notes */}
+            {withdrawal.adminNotes && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Admin Notes
+                </h3>
+                <p className="text-gray-700" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  {withdrawal.adminNotes}
+                </p>
+              </div>
+            )}
+
+            {/* Actions for Pending Withdrawals */}
             {withdrawal.status === 'pending' && (
               <div className="bg-gray-50 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Admin Actions
                 </h3>
+                
+                {isStripeConnect && (
+                  <div className="mb-4 p-4 bg-purple-100 border border-purple-200 rounded-xl">
+                    <p className="text-purple-800 font-medium">
+                      Stripe Connect Payment: Approving this withdrawal will automatically process the transfer.
+                    </p>
+                  </div>
+                )}
+                
+                {isBankTransfer && (
+                  <div className="mb-4 p-4 bg-blue-100 border border-blue-200 rounded-xl">
+                    <p className="text-blue-800 font-medium">
+                      Bank Transfer: Approving this withdrawal will mark it as ready for manual processing. You'll need to complete it separately after processing the bank transfer.
+                    </p>
+                  </div>
+                )}
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -394,7 +497,8 @@ const WithdrawalManagement = () => {
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
-                    {processingAction === withdrawal.id ? 'Processing...' : 'Approve Withdrawal'}
+                    {processingAction === withdrawal.id ? 'Processing...' : 
+                     isStripeConnect ? 'Approve & Auto-Transfer' : 'Approve for Processing'}
                   </button>
                   
                   <button
@@ -409,23 +513,32 @@ const WithdrawalManagement = () => {
               </div>
             )}
 
-            {/* Complete Processing Actions */}
-            {withdrawal.status === 'processing' && (
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
-                  Complete Processing
+            {/* Actions for Approved Bank Transfers */}
+            {withdrawal.status === 'approved' && isBankTransfer && (
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-blue-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Complete Bank Transfer
                 </h3>
+                
+                <div className="mb-4 p-4 bg-white border border-blue-200 rounded-xl">
+                  <p className="text-blue-800 font-medium mb-2">
+                    This withdrawal has been approved and is ready for completion.
+                  </p>
+                  <p className="text-blue-700 text-sm">
+                    Process the bank transfer using the details above, then mark it as completed with the transaction reference.
+                  </p>
+                </div>
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transaction Reference
+                    Transaction Reference *
                   </label>
                   <input
                     type="text"
-                    value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
+                    value={transactionReference}
+                    onChange={(e) => setTransactionReference(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Enter transaction reference..."
+                    placeholder="Enter bank transaction reference..."
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   />
                 </div>
@@ -445,13 +558,39 @@ const WithdrawalManagement = () => {
                 </div>
 
                 <button
-                  onClick={() => handleAction(withdrawal.id, 'complete', `${actionNotes} | Transaction: ${transactionId}`)}
-                  disabled={processingAction === withdrawal.id || !transactionId.trim()}
+                  onClick={() => handleAction(withdrawal.id, 'complete', actionNotes, transactionReference)}
+                  disabled={processingAction === withdrawal.id || !transactionReference.trim()}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
                   style={{ fontFamily: 'Poppins, sans-serif' }}
                 >
                   {processingAction === withdrawal.id ? 'Processing...' : 'Mark as Completed'}
                 </button>
+              </div>
+            )}
+
+            {/* Status Display for Other States */}
+            {(['completed', 'rejected', 'cancelled'].includes(withdrawal.status)) && (
+              <div className={`rounded-2xl p-6 ${
+                withdrawal.status === 'completed' ? 'bg-green-50 border border-green-200' :
+                withdrawal.status === 'rejected' ? 'bg-red-50 border border-red-200' :
+                'bg-gray-50 border border-gray-200'
+              }`}>
+                <h3 className="text-lg font-bold mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Withdrawal {withdrawal.status === 'completed' ? 'Completed' : 
+                             withdrawal.status === 'rejected' ? 'Rejected' : 'Cancelled'}
+                </h3>
+                <p className={`${
+                  withdrawal.status === 'completed' ? 'text-green-800' :
+                  withdrawal.status === 'rejected' ? 'text-red-800' :
+                  'text-gray-800'
+                }`}>
+                  This withdrawal has been {withdrawal.status}.
+                  {withdrawal.transactionReference && (
+                    <span className="block mt-2 font-mono text-sm">
+                      Transaction Reference: {withdrawal.transactionReference}
+                    </span>
+                  )}
+                </p>
               </div>
             )}
           </div>
@@ -494,7 +633,7 @@ const WithdrawalManagement = () => {
               Withdrawal Management
             </h1>
             <p className="text-white/90" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              Review and process withdrawal requests from tour guides and influencers
+              Process withdrawal requests with support for Stripe Connect and Bank Transfers
             </p>
           </div>
           <BanknotesIcon className="w-16 h-16 text-white/80" />
@@ -502,7 +641,7 @@ const WithdrawalManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
             <div className="bg-orange-100 p-3 rounded-xl">
@@ -512,7 +651,7 @@ const WithdrawalManagement = () => {
               <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.pending}
               </p>
-              <p className="text-sm text-gray-600">Pending Review</p>
+              <p className="text-sm text-gray-600">Pending</p>
             </div>
           </div>
         </div>
@@ -541,6 +680,20 @@ const WithdrawalManagement = () => {
                 {stats.processing}
               </p>
               <p className="text-sm text-gray-600">Processing</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center">
+            <div className="bg-green-100 p-3 rounded-xl">
+              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                {stats.completed}
+              </p>
+              <p className="text-sm text-gray-600">Completed</p>
             </div>
           </div>
         </div>
@@ -640,6 +793,7 @@ const WithdrawalManagement = () => {
                 const userName = userInfo.name || 'Unknown User';
                 const userEmail = userInfo.email || 'No email';
                 const userType = userInfo.type || 'user';
+                const paymentMethod = getPaymentMethodDisplay(withdrawal);
 
                 return (
                   <tr key={withdrawal.id} className="hover:bg-gray-50 transition-colors">
@@ -662,7 +816,7 @@ const WithdrawalManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-mono text-sm text-gray-900">{withdrawal.reference}</p>
+                      <p className="font-mono text-sm text-gray-900">{withdrawal.reference || withdrawal.withdrawalReference}</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -670,9 +824,12 @@ const WithdrawalManagement = () => {
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        Bank Transfer
-                      </p>
+                      <div className="flex items-center">
+                        <paymentMethod.icon className={`w-4 h-4 mr-2 ${paymentMethod.color}`} />
+                        <p className="text-sm text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {paymentMethod.label}
+                        </p>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(withdrawal.status)}`}>
