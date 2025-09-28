@@ -22,13 +22,27 @@ import {
   InformationCircleIcon,
   PauseCircleIcon,
   ArchiveBoxIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  BuildingOfficeIcon,
+  HomeIcon,
+  TruckIcon,
+  BeakerIcon,
+  TagIcon,
+  GlobeAltIcon,
+  BanknotesIcon,
+  CalendarIcon,
+  BookOpenIcon,
+  ExclamationTriangleIcon,
+  PhoneIcon,
+  BriefcaseIcon,
+  LightBulbIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
 const ToursManagement = () => {
   const [selectedFilter, setSelectedFilter] = useState('pending_review');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedTourType, setSelectedTourType] = useState('all'); // NEW
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTour, setSelectedTour] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
@@ -42,10 +56,12 @@ const ToursManagement = () => {
     pending: 0,
     active: 0,
     rejected: 0,
-    total: 0
+    total: 0,
+    packages: 0, // NEW
+    dayTrips: 0  // NEW
   });
 
-  // FIXED: Fetch tours with showLoading parameter
+  // ENHANCED: Fetch tours with tourType filter
   const fetchTours = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -55,6 +71,7 @@ const ToursManagement = () => {
       const filters = {
         status: selectedFilter === 'all' ? undefined : selectedFilter,
         category: selectedCategory === 'all' ? undefined : selectedCategory,
+        tourType: selectedTourType === 'all' ? undefined : selectedTourType, // NEW
         search: searchTerm || undefined,
         page: 1,
         limit: 20
@@ -68,13 +85,15 @@ const ToursManagement = () => {
       setTours(response.data.tours);
       setPagination(response.data.pagination);
       
-      // Calculate stats from the tours data
+      // Calculate enhanced stats including tour types
       const allTours = response.data.tours;
       setStats({
         pending: allTours.filter(t => t.status === 'pending_review').length,
         active: allTours.filter(t => t.status === 'active').length,
         rejected: allTours.filter(t => t.status === 'rejected').length,
-        total: allTours.length
+        total: allTours.length,
+        packages: allTours.filter(t => t.tourType === 'package').length,
+        dayTrips: allTours.filter(t => t.tourType === 'day_trip').length
       });
       
       setError(null);
@@ -88,19 +107,19 @@ const ToursManagement = () => {
     }
   };
 
-  // Initial load with loading state
+  // Initial load and filter updates (unchanged)
   useEffect(() => {
     fetchTours(true);
   }, []);
 
-  // Filter changes without loading state (debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchTours(false); // Don't show loading for filter changes
+      fetchTours(false);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [selectedFilter, selectedCategory, searchTerm]);
+  }, [selectedFilter, selectedCategory, selectedTourType, searchTerm]);
 
+  // Helper functions (unchanged)
   const getStatusColor = (status) => {
     switch (status) {
       case 'draft':
@@ -139,16 +158,38 @@ const ToursManagement = () => {
     }
   };
 
-  const filteredTours = tours; // Already filtered by API
+  // NEW: Get tour type icon and color
+  const getTourTypeDisplay = (tourType) => {
+    switch (tourType) {
+      case 'package':
+        return {
+          icon: <BriefcaseIcon className="w-4 h-4" />,
+          color: 'bg-purple-100 text-purple-800 border-purple-200',
+          label: 'Package'
+        };
+      case 'day_trip':
+        return {
+          icon: <ClockIcon className="w-4 h-4" />,
+          color: 'bg-blue-100 text-blue-800 border-blue-200',
+          label: 'Day Trip'
+        };
+      default:
+        return {
+          icon: <MapIcon className="w-4 h-4" />,
+          color: 'bg-gray-100 text-gray-800 border-gray-200',
+          label: 'Tour'
+        };
+    }
+  };
 
-  // FIXED: No full screen reload on actions
+  const filteredTours = tours;
+
   const handleAction = async (tourId, action, data = {}) => {
     setProcessingAction(tourId);
     
     try {
       await apiService.updateTourStatus(tourId, action, data.reviewNotes);
       
-      // Update local state instead of full refetch
       setTours(prevTours => 
         prevTours.map(tour => 
           tour._id === tourId 
@@ -157,18 +198,15 @@ const ToursManagement = () => {
         )
       );
       
-      // Update stats based on the change
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const tour = tours.find(t => t._id === tourId);
         
         if (tour) {
-          // Decrease old status count
           if (tour.status === 'pending_review') newStats.pending = Math.max(0, newStats.pending - 1);
           else if (tour.status === 'active') newStats.active = Math.max(0, newStats.active - 1);
           else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
           
-          // Increase new status count
           if (action === 'pending_review') newStats.pending++;
           else if (action === 'active') newStats.active++;
           else if (action === 'rejected') newStats.rejected++;
@@ -180,7 +218,6 @@ const ToursManagement = () => {
       setSelectedTour(null);
       alert(`Tour status changed to ${action} successfully!`);
       
-      // Background cache refresh without loading state
       setTimeout(() => {
         apiService.getTours({}, { forceRefresh: true }).catch(console.error);
       }, 1000);
@@ -197,12 +234,12 @@ const ToursManagement = () => {
     setSelectedTour(tour);
   };
 
+  // ENHANCED: Tour Modal with comprehensive tour information
   const TourModal = ({ tour, onClose }) => {
     const [actionNotes, setActionNotes] = useState('');
     const [selectedStatus, setSelectedStatus] = useState(tour.status);
     const [statusReason, setStatusReason] = useState('');
 
-    // All available statuses
     const allStatuses = [
       { value: 'draft', label: 'Draft', color: 'text-gray-600', description: 'Tour is in draft mode' },
       { value: 'pending_review', label: 'Pending Review', color: 'text-orange-600', description: 'Waiting for admin review' },
@@ -218,7 +255,6 @@ const ToursManagement = () => {
         return;
       }
 
-      // Require reason for certain status changes
       const requiresReason = ['rejected', 'paused', 'archived'];
       if (requiresReason.includes(selectedStatus) && !statusReason.trim()) {
         alert(`Please provide a reason for changing status to ${selectedStatus}.`);
@@ -229,9 +265,11 @@ const ToursManagement = () => {
       handleAction(tour._id, selectedStatus, { reviewNotes: notes });
     };
 
+    const tourTypeDisplay = getTourTypeDisplay(tour.tourType);
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-3xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -247,7 +285,7 @@ const ToursManagement = () => {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Tour Header */}
+            {/* ENHANCED: Tour Header with Tour Type */}
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -259,9 +297,16 @@ const ToursManagement = () => {
                       {getStatusIcon(tour.status)}
                       <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
                     </span>
-                    <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {tour.category}
+                    {/* NEW: Tour Type Badge */}
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${tourTypeDisplay.color}`}>
+                      {tourTypeDisplay.icon}
+                      <span className="ml-1">{tourTypeDisplay.label}</span>
                     </span>
+                    {tour.category && (
+                      <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {tour.category}
+                      </span>
+                    )}
                     <div className="flex items-center bg-white px-3 py-1 rounded-full">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                       <span className="text-sm font-medium">{tour.completionPercentage || 0}% Complete</span>
@@ -272,31 +317,46 @@ const ToursManagement = () => {
                   <div className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
                     ${tour.pricePerPerson}
                   </div>
-                  <p className="text-sm text-gray-600">per person</p>
+                  <p className="text-sm text-gray-600">
+                    {tour.tourType === 'package' ? 'per package' : 'per person'}
+                  </p>
                 </div>
               </div>
 
+              {/* ENHANCED: Tour Details Grid with Package/Day Trip Specific Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="flex items-center text-gray-600">
                   <ClockIcon className="w-4 h-4 mr-2" />
-                  {tour.duration} hours
+                  {tour.tourType === 'package' 
+                    ? `${tour.packageDetails?.totalDays || 1} days`
+                    : `${tour.duration} hours`
+                  }
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <UsersIcon className="w-4 h-4 mr-2" />
-                  Max {tour.maxGroupSize}
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <LanguageIcon className="w-4 h-4 mr-2" />
-                  {tour.languages?.join(', ') || 'Not specified'}
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                  {tour.availability?.days?.length || 0} days/week
-                </div>
+                {tour.maxGroupSize && (
+                  <div className="flex items-center text-gray-600">
+                    <UsersIcon className="w-4 h-4 mr-2" />
+                    Max {tour.maxGroupSize}
+                  </div>
+                )}
+                {tour.languages?.length > 0 && (
+                  <div className="flex items-center text-gray-600">
+                    <LanguageIcon className="w-4 h-4 mr-2" />
+                    {tour.languages.join(', ')}
+                  </div>
+                )}
+                {tour.availability && (
+                  <div className="flex items-center text-gray-600">
+                    <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                    {tour.availability.type === 'recurring' 
+                      ? `${tour.availability.days?.length || 0} days/week`
+                      : `${tour.availability.startDates?.length || 0} start dates`
+                    }
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Guide Information */}
+            {/* Guide Information (unchanged) */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Guide
@@ -326,7 +386,45 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* Tour Description */}
+            {/* ENHANCED: Location Information */}
+            {tour.location && (tour.location.country || tour.location.city) && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Location Details
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {tour.location.country && (
+                    <div className="flex items-center">
+                      <GlobeAltIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <div>
+                        <p className="text-sm text-gray-600">Country</p>
+                        <p className="font-medium">{tour.location.country}</p>
+                      </div>
+                    </div>
+                  )}
+                  {tour.location.city && (
+                    <div className="flex items-center">
+                      <BuildingOfficeIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <div>
+                        <p className="text-sm text-gray-600">City</p>
+                        <p className="font-medium">{tour.location.city}</p>
+                      </div>
+                    </div>
+                  )}
+                  {tour.location.area && (
+                    <div className="flex items-center">
+                      <MapPinIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <div>
+                        <p className="text-sm text-gray-600">Area</p>
+                        <p className="font-medium">{tour.location.area}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tour Description (unchanged) */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Description
@@ -336,7 +434,252 @@ const ToursManagement = () => {
               </p>
             </div>
 
-            {/* Tour Features */}
+            {/* ENHANCED: Availability Information */}
+            {tour.availability && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Availability
+                </h4>
+                {tour.availability.type === 'recurring' ? (
+                  <div className="space-y-4">
+                    {tour.availability.days?.length > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Available Days</p>
+                        <div className="flex flex-wrap gap-2">
+                          {tour.availability.days.map((day, index) => (
+                            <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                              {day}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {tour.availability.timeSlots?.length > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Time Slots</p>
+                        <div className="flex flex-wrap gap-2">
+                          {tour.availability.timeSlots.map((slot, index) => (
+                            <span key={index} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                              {slot}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Package Start Dates</p>
+                    {tour.availability.startDates?.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {tour.availability.startDates.map((date, index) => (
+                          <span key={index} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                            {new Date(date).toLocaleDateString()}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 italic">No start dates specified</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* NEW: Package Details Section (Only for Package Tours) */}
+            {tour.tourType === 'package' && tour.packageDetails && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Package Details
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Duration & Accommodation */}
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-xl p-4 border border-purple-200">
+                      <div className="flex items-center mb-2">
+                        <CalendarIcon className="w-5 h-5 text-purple-600 mr-2" />
+                        <h5 className="font-semibold text-gray-900">Duration</h5>
+                      </div>
+                      <p className="text-2xl font-bold text-purple-600">{tour.packageDetails.totalDays} Days</p>
+                      {tour.packageDetails.accommodationSummary?.totalNights && (
+                        <p className="text-sm text-gray-600">{tour.packageDetails.accommodationSummary.totalNights} Nights</p>
+                      )}
+                    </div>
+
+                    {tour.packageDetails.accommodationSummary && (
+                      <div className="bg-white rounded-xl p-4 border border-purple-200">
+                        <div className="flex items-center mb-2">
+                          <HomeIcon className="w-5 h-5 text-purple-600 mr-2" />
+                          <h5 className="font-semibold text-gray-900">Accommodation</h5>
+                        </div>
+                        <p className="text-sm text-gray-700">{tour.packageDetails.accommodationSummary.hotelStandard}</p>
+                        <p className="text-sm text-gray-600">{tour.packageDetails.accommodationSummary.roomSharing} Occupancy</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Meals & Transportation */}
+                  <div className="space-y-4">
+                    {tour.packageDetails.mealPlan && (
+                      <div className="bg-white rounded-xl p-4 border border-purple-200">
+                        <div className="flex items-center mb-2">
+                          <BeakerIcon className="w-5 h-5 text-purple-600 mr-2" />
+                          <h5 className="font-semibold text-gray-900">Meal Plan</h5>
+                        </div>
+                        <p className="text-sm text-gray-700">{tour.packageDetails.mealPlan}</p>
+                      </div>
+                    )}
+
+                    {tour.packageDetails.transportation && (
+                      <div className="bg-white rounded-xl p-4 border border-purple-200">
+                        <div className="flex items-center mb-2">
+                          <TruckIcon className="w-5 h-5 text-purple-600 mr-2" />
+                          <h5 className="font-semibold text-gray-900">Transportation</h5>
+                        </div>
+                        <p className="text-sm text-gray-700">{tour.packageDetails.transportation.transportType}</p>
+                        {tour.packageDetails.transportation.flightsIncluded && (
+                          <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mt-1">
+                            Flights Included
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Booking Policy */}
+                  <div className="space-y-4">
+                    {tour.packageDetails.bookingPolicy && (
+                      <div className="bg-white rounded-xl p-4 border border-purple-200">
+                        <div className="flex items-center mb-2">
+                          <DocumentTextIcon className="w-5 h-5 text-purple-600 mr-2" />
+                          <h5 className="font-semibold text-gray-900">Booking Policy</h5>
+                        </div>
+                        <p className="text-sm text-gray-700">
+                          Book {tour.packageDetails.bookingPolicy.advanceBookingDays} days in advance
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {tour.packageDetails.bookingPolicy.cancellationPolicy} cancellation
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Package Inclusions & Exclusions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {tour.packageDetails.packageInclusions?.length > 0 && (
+                    <div className="bg-white rounded-xl p-4 border border-green-200">
+                      <h5 className="font-semibold text-green-800 mb-3 flex items-center">
+                        <CheckCircleIcon className="w-5 h-5 mr-2" />
+                        Inclusions
+                      </h5>
+                      <div className="space-y-1">
+                        {tour.packageDetails.packageInclusions.map((inclusion, index) => (
+                          <div key={index} className="flex items-center text-sm text-green-700">
+                            <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" />
+                            {inclusion}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {tour.packageDetails.packageExclusions?.length > 0 && (
+                    <div className="bg-white rounded-xl p-4 border border-red-200">
+                      <h5 className="font-semibold text-red-800 mb-3 flex items-center">
+                        <XCircleIcon className="w-5 h-5 mr-2" />
+                        Exclusions
+                      </h5>
+                      <div className="space-y-1">
+                        {tour.packageDetails.packageExclusions.map((exclusion, index) => (
+                          <div key={index} className="flex items-center text-sm text-red-700">
+                            <XCircleIcon className="w-4 h-4 mr-2 text-red-500" />
+                            {exclusion}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Day-wise Itinerary */}
+                {tour.packageDetails.dayWiseItinerary?.length > 0 && (
+                  <div className="mt-6">
+                    <h5 className="font-semibold text-gray-900 mb-4 flex items-center">
+                      <BookOpenIcon className="w-5 h-5 mr-2" />
+                      Day-wise Itinerary
+                    </h5>
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {tour.packageDetails.dayWiseItinerary.map((day, index) => (
+                        <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <h6 className="font-medium text-gray-900">Day {day.day}: {day.title}</h6>
+                            <div className="flex space-x-2">
+                              {day.meals?.breakfast && (
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">B</span>
+                              )}
+                              {day.meals?.lunch && (
+                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">L</span>
+                              )}
+                              {day.meals?.dinner && (
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">D</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600">{day.description}</p>
+                          {day.accommodation?.provided && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              <HomeIcon className="w-4 h-4 inline mr-1" />
+                              {day.accommodation.hotelName} ({day.accommodation.roomType})
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ENHANCED: Meeting Point Information */}
+            {tour.meetingPoint && (tour.meetingPoint.name || tour.meetingPoint.instructions) && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Meeting Point
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {tour.meetingPoint.name && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Meeting Location</p>
+                      <p className="font-medium text-gray-900">{tour.meetingPoint.name}</p>
+                    </div>
+                  )}
+                  {tour.meetingPoint.instructions && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Instructions</p>
+                      <p className="text-gray-700">{tour.meetingPoint.instructions}</p>
+                    </div>
+                  )}
+                  {tour.meetingPoint.returnLocation && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Return Location</p>
+                      <p className="text-gray-700">{tour.meetingPoint.returnLocation}</p>
+                    </div>
+                  )}
+                  {tour.meetingPoint.coordinates && (tour.meetingPoint.coordinates.lat !== 0 || tour.meetingPoint.coordinates.lng !== 0) && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Coordinates</p>
+                      <p className="text-gray-700">
+                        {tour.meetingPoint.coordinates.lat}, {tour.meetingPoint.coordinates.lng}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tour Features (unchanged) */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Features
@@ -363,13 +706,130 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* Admin Status Management - NEW ENHANCED SECTION */}
+            {/* NEW: Inclusions for Day Trips */}
+            {tour.tourType === 'day_trip' && tour.inclusions?.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Tour Inclusions
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {tour.inclusions.map((inclusion, index) => (
+                    <div key={index} className="flex items-center text-sm text-green-700">
+                      <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" />
+                      {inclusion}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* NEW: Additional Information */}
+            {tour.additionalInfo && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Additional Information
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* What to Bring */}
+                  {tour.additionalInfo.whatToBring?.length > 0 && (
+                    <div>
+                      <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <BriefcaseIcon className="w-5 h-5 mr-2 text-blue-600" />
+                        What to Bring
+                      </h5>
+                      <div className="space-y-1">
+                        {tour.additionalInfo.whatToBring.map((item, index) => (
+                          <div key={index} className="flex items-center text-sm text-gray-700">
+                            <TagIcon className="w-4 h-4 mr-2 text-blue-500" />
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Important Notes */}
+                  {tour.additionalInfo.importantNotes?.length > 0 && (
+                    <div>
+                      <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 text-orange-600" />
+                        Important Notes
+                      </h5>
+                      <div className="space-y-1">
+                        {tour.additionalInfo.importantNotes.map((note, index) => (
+                          <div key={index} className="flex items-start text-sm text-gray-700">
+                            <LightBulbIcon className="w-4 h-4 mr-2 text-orange-500 mt-0.5" />
+                            {note}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Emergency Contact */}
+                {tour.additionalInfo.emergencyContact && (tour.additionalInfo.emergencyContact.name || tour.additionalInfo.emergencyContact.phone) && (
+                  <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
+                    <h5 className="font-semibold text-red-900 mb-2 flex items-center">
+                      <PhoneIcon className="w-5 h-5 mr-2" />
+                      Emergency Contact
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {tour.additionalInfo.emergencyContact.name && (
+                        <div>
+                          <p className="text-sm text-red-700">Name</p>
+                          <p className="font-medium text-red-900">{tour.additionalInfo.emergencyContact.name}</p>
+                        </div>
+                      )}
+                      {tour.additionalInfo.emergencyContact.phone && (
+                        <div>
+                          <p className="text-sm text-red-700">Phone</p>
+                          <p className="font-medium text-red-900">{tour.additionalInfo.emergencyContact.phone}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Detailed Itinerary for Day Trips */}
+                {tour.additionalInfo.detailedItinerary?.length > 0 && (
+                  <div className="mt-6">
+                    <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                      <ClockIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                      Detailed Itinerary
+                    </h5>
+                    <div className="space-y-3 max-h-40 overflow-y-auto">
+                      {tour.additionalInfo.detailedItinerary.map((item, index) => (
+                        <div key={index} className="flex items-start bg-gray-50 rounded-lg p-3">
+                          <div className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs font-medium mr-3 mt-0.5">
+                            {item.time}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{item.title}</p>
+                            {item.description && (
+                              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                            )}
+                            {item.type && (
+                              <span className="inline-block bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs mt-1">
+                                {item.type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Status Management Section (unchanged from original) */}
             <div className="bg-gray-50 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Status Management
               </h4>
               
-              {/* Current Status Display */}
               <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -390,7 +850,6 @@ const ToursManagement = () => {
                 </div>
               </div>
 
-              {/* Status Change Section */}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -415,7 +874,6 @@ const ToursManagement = () => {
                   )}
                 </div>
 
-                {/* General Admin Notes */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Admin Notes (Optional)
@@ -430,7 +888,6 @@ const ToursManagement = () => {
                   />
                 </div>
 
-                {/* Conditional Reason Field for Specific Statuses */}
                 {(['rejected', 'paused', 'archived'].includes(selectedStatus) && selectedStatus !== tour.status) && (
                   <div>
                     <label className="block text-sm font-medium text-red-700 mb-2">
@@ -448,7 +905,6 @@ const ToursManagement = () => {
                   </div>
                 )}
 
-                {/* Action Button */}
                 {selectedStatus !== tour.status && (
                   <button
                     onClick={handleStatusChange}
@@ -479,7 +935,6 @@ const ToursManagement = () => {
                 )}
               </div>
 
-              {/* Previous Review Notes Display */}
               {(tour.adminReview?.reviewNotes || tour.reviewNotes || tour.rejectionReason) && (
                 <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                   <h5 className="text-sm font-medium text-blue-900 mb-2">Previous Admin Notes:</h5>
@@ -519,7 +974,7 @@ const ToursManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header (unchanged) */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white">
         <div className="flex items-center justify-between">
           <div>
@@ -534,8 +989,8 @@ const ToursManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* ENHANCED: Stats Cards with Tour Type Information */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
             <div className="bg-orange-100 p-3 rounded-xl">
@@ -591,9 +1046,39 @@ const ToursManagement = () => {
             </div>
           </div>
         </div>
+
+        {/* NEW: Package Tours Stats */}
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center">
+            <div className="bg-purple-100 p-3 rounded-xl">
+              <BriefcaseIcon className="w-6 h-6 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                {stats.packages}
+              </p>
+              <p className="text-sm text-gray-600">Packages</p>
+            </div>
+          </div>
+        </div>
+
+        {/* NEW: Day Trips Stats */}
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center">
+            <div className="bg-indigo-100 p-3 rounded-xl">
+              <ClockIcon className="w-6 h-6 text-indigo-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                {stats.dayTrips}
+              </p>
+              <p className="text-sm text-gray-600">Day Trips</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Filters and Search */}
+      {/* ENHANCED: Filters and Search with Tour Type Filter */}
       <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -625,6 +1110,18 @@ const ToursManagement = () => {
                 <option value="archived">Archived</option>
               </select>
 
+              {/* NEW: Tour Type Filter */}
+              <select
+                value={selectedTourType}
+                onChange={(e) => setSelectedTourType(e.target.value)}
+                className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                <option value="all">All Types</option>
+                <option value="day_trip">Day Trips</option>
+                <option value="package">Packages</option>
+              </select>
+
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
@@ -636,6 +1133,9 @@ const ToursManagement = () => {
                 <option value="Food Tours">Food Tours</option>
                 <option value="Mosque Architecture">Mosque Architecture</option>
                 <option value="Cultural Tours">Cultural Tours</option>
+                <option value="Historical Tours">Historical Tours</option>
+                <option value="Walking Tours">Walking Tours</option>
+                <option value="City Tours">City Tours</option>
               </select>
             </div>
           </div>
@@ -649,7 +1149,7 @@ const ToursManagement = () => {
         </div>
       </div>
 
-      {/* Tours Table */}
+      {/* ENHANCED: Tours Table with Tour Type Column */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -659,7 +1159,7 @@ const ToursManagement = () => {
                   Tour & Guide
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  Category
+                  Type & Category
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Price & Duration
@@ -676,100 +1176,119 @@ const ToursManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredTours.map((tour) => (
-                <tr key={tour._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        {tour.title}
+              {filteredTours.map((tour) => {
+                const tourTypeDisplay = getTourTypeDisplay(tour.tourType);
+                return (
+                  <tr key={tour._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {tour.title}
+                        </p>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-2">
+                            <span className="text-white font-bold text-xs">
+                              {tour.guideId?.fullName?.split(' ').map(n => n[0]).join('') || 'G'}
+                            </span>
+                          </div>
+                          <span>{tour.guideId?.fullName || 'Guide Name'}</span>
+                          <span className="mx-2">•</span>
+                          <MapPinIcon className="w-4 h-4 mr-1" />
+                          <span>{tour.guideId?.city}</span>
+                        </div>
+                        <div className="flex items-center mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" 
+                              style={{ width: `${tour.completionPercentage || 0}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-500 ml-2">{tour.completionPercentage || 0}%</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {/* ENHANCED: Tour Type and Category */}
+                      <div className="space-y-2">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${tourTypeDisplay.color}`}>
+                          {tourTypeDisplay.icon}
+                          <span className="ml-1">{tourTypeDisplay.label}</span>
+                        </span>
+                        {tour.category && (
+                          <div>
+                            <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                              {tour.category}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center mt-2 space-x-2">
+                        {tour.isHalalCertified && (
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Halal</span>
+                        )}
+                        {tour.includesPrayerBreaks && (
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Prayer</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        ${tour.pricePerPerson}
                       </p>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-2">
-                          <span className="text-white font-bold text-xs">
-                            {tour.guideId?.fullName?.split(' ').map(n => n[0]).join('') || 'G'}
+                      <div className="text-sm text-gray-600 mt-1">
+                        <div className="flex items-center">
+                          <ClockIcon className="w-4 h-4 mr-1" />
+                          {tour.tourType === 'package' 
+                            ? `${tour.packageDetails?.totalDays || 1} days`
+                            : `${tour.duration}h`
+                          }
+                        </div>
+                        {tour.maxGroupSize && (
+                          <div className="flex items-center">
+                            <UsersIcon className="w-4 h-4 mr-1" />
+                            Max {tour.maxGroupSize}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(tour.status)}`}>
+                        {getStatusIcon(tour.status)}
+                        <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
+                      </span>
+                      {tour.stats?.averageRating > 0 && (
+                        <div className="flex items-center mt-1">
+                          <StarIcon className="w-4 h-4 text-yellow-500" />
+                          <span className="text-sm text-gray-600 ml-1">
+                            {tour.stats.averageRating} ({tour.stats.totalReviews})
                           </span>
                         </div>
-                        <span>{tour.guideId?.fullName || 'Guide Name'}</span>
-                        <span className="mx-2">•</span>
-                        <MapPinIcon className="w-4 h-4 mr-1" />
-                        <span>{tour.guideId?.city}</span>
-                      </div>
-                      <div className="flex items-center mt-2">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" 
-                            style={{ width: `${tour.completionPercentage || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-500 ml-2">{tour.completionPercentage || 0}%</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {tour.category}
-                    </span>
-                    <div className="flex items-center mt-2 space-x-2">
-                      {tour.isHalalCertified && (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Halal</span>
                       )}
-                      {tour.includesPrayerBreaks && (
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Prayer</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {tour.submittedForReviewAt && (
+                        <>
+                          <p className="text-sm text-gray-900">
+                            {new Date(tour.submittedForReviewAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(tour.submittedForReviewAt).toLocaleTimeString()}
+                          </p>
+                        </>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      ${tour.pricePerPerson}
-                    </p>
-                    <div className="text-sm text-gray-600 mt-1">
-                      <div className="flex items-center">
-                        <ClockIcon className="w-4 h-4 mr-1" />
-                        {tour.duration}h
-                      </div>
-                      <div className="flex items-center">
-                        <UsersIcon className="w-4 h-4 mr-1" />
-                        Max {tour.maxGroupSize}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(tour.status)}`}>
-                      {getStatusIcon(tour.status)}
-                      <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
-                    </span>
-                    {tour.stats?.averageRating > 0 && (
-                      <div className="flex items-center mt-1">
-                        <StarIcon className="w-4 h-4 text-yellow-500" />
-                        <span className="text-sm text-gray-600 ml-1">
-                          {tour.stats.averageRating} ({tour.stats.totalReviews})
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {tour.submittedForReviewAt && (
-                      <>
-                        <p className="text-sm text-gray-900">
-                          {new Date(tour.submittedForReviewAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(tour.submittedForReviewAt).toLocaleTimeString()}
-                        </p>
-                      </>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => viewDetails(tour)}
-                      className="flex items-center px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors"
-                    >
-                      <EyeIcon className="w-4 h-4 mr-1" />
-                      <span className="text-sm font-medium">Manage</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => viewDetails(tour)}
+                        className="flex items-center px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors"
+                      >
+                        <EyeIcon className="w-4 h-4 mr-1" />
+                        <span className="text-sm font-medium">Manage</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

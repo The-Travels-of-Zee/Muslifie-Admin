@@ -16,7 +16,8 @@ import {
   XMarkIcon,
   ShieldCheckIcon,
   PaperAirplaneIcon,
-  ChatBubbleLeftIcon
+  ChatBubbleLeftIcon,
+  FireIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,7 +33,7 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Your original working menu items with email and chat pages added
+  // Updated menu items with Firebase Analytics
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: HomeIcon, href: '/dashboard', badge: null },
     { id: 'users', name: 'Users', icon: UsersIcon, href: '/dashboard/users', badge: badges.users },
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children }) {
     { id: 'chat', name: 'Live Chat', icon: ChatBubbleLeftIcon, href: '/dashboard/chat', badge: badges.chat },
     { id: 'email', name: 'Send Email', icon: PaperAirplaneIcon, href: '/dashboard/email', badge: null },
     { id: 'analytics', name: 'Analytics', icon: ChartBarSquareIcon, href: '/dashboard/analytics', badge: null },
+    { id: 'firebase-analytics', name: 'Firebase Analytics', icon: FireIcon, href: '/dashboard/firebase-analytics', badge: null },
     // { id: 'settings', name: 'Settings', icon: Cog6ToothIcon, href: '/dashboard/settings', badge: null }
   ];
 
