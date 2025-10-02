@@ -61,6 +61,23 @@ const ToursManagement = () => {
     dayTrips: 0  // NEW
   });
 
+  // NEW: Helper function to normalize tourType (treat missing as day_trip)
+  const normalizeTourType = (tourType) => {
+    return tourType || 'day_trip';
+  };
+
+  // NEW: Helper function to get correct duration display
+  const getDurationDisplay = (tour) => {
+    const normalizedType = normalizeTourType(tour.tourType);
+    if (normalizedType === 'package') {
+      const days = tour.packageDetails?.totalDays || tour.duration || 1;
+      return `${days} ${days === 1 ? 'day' : 'days'}`;
+    } else {
+      const hours = tour.duration || 1;
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    }
+  };
+
   // ENHANCED: Fetch tours with tourType filter
   const fetchTours = async (showLoading = true) => {
     try {
@@ -85,15 +102,15 @@ const ToursManagement = () => {
       setTours(response.data.tours);
       setPagination(response.data.pagination);
       
-      // Calculate enhanced stats including tour types
+      // Calculate enhanced stats including tour types (with normalization)
       const allTours = response.data.tours;
       setStats({
         pending: allTours.filter(t => t.status === 'pending_review').length,
         active: allTours.filter(t => t.status === 'active').length,
         rejected: allTours.filter(t => t.status === 'rejected').length,
         total: allTours.length,
-        packages: allTours.filter(t => t.tourType === 'package').length,
-        dayTrips: allTours.filter(t => t.tourType === 'day_trip').length
+        packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length, // NEW with normalization
+        dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length // NEW with normalization
       });
       
       setError(null);
@@ -107,7 +124,7 @@ const ToursManagement = () => {
     }
   };
 
-  // Initial load and filter updates (unchanged)
+  // Initial load and filter updates
   useEffect(() => {
     fetchTours(true);
   }, []);
@@ -158,9 +175,10 @@ const ToursManagement = () => {
     }
   };
 
-  // NEW: Get tour type icon and color
+  // NEW: Get tour type icon and color (with normalization)
   const getTourTypeDisplay = (tourType) => {
-    switch (tourType) {
+    const normalizedType = normalizeTourType(tourType);
+    switch (normalizedType) {
       case 'package':
         return {
           icon: <BriefcaseIcon className="w-4 h-4" />,
@@ -234,7 +252,7 @@ const ToursManagement = () => {
     setSelectedTour(tour);
   };
 
-  // ENHANCED: Tour Modal with comprehensive tour information
+  // Tour Modal with comprehensive tour information
   const TourModal = ({ tour, onClose }) => {
     const [actionNotes, setActionNotes] = useState('');
     const [selectedStatus, setSelectedStatus] = useState(tour.status);
@@ -266,6 +284,7 @@ const ToursManagement = () => {
     };
 
     const tourTypeDisplay = getTourTypeDisplay(tour.tourType);
+    const normalizedType = normalizeTourType(tour.tourType);
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -285,7 +304,7 @@ const ToursManagement = () => {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* ENHANCED: Tour Header with Tour Type */}
+            {/* Tour Header with Tour Type */}
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -318,19 +337,16 @@ const ToursManagement = () => {
                     ${tour.pricePerPerson}
                   </div>
                   <p className="text-sm text-gray-600">
-                    {tour.tourType === 'package' ? 'per package' : 'per person'}
+                    {normalizedType === 'package' ? 'per package' : 'per person'}
                   </p>
                 </div>
               </div>
 
-              {/* ENHANCED: Tour Details Grid with Package/Day Trip Specific Info */}
+              {/* FIXED: Tour Details Grid with correct duration display */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="flex items-center text-gray-600">
                   <ClockIcon className="w-4 h-4 mr-2" />
-                  {tour.tourType === 'package' 
-                    ? `${tour.packageDetails?.totalDays || 1} days`
-                    : `${tour.duration} hours`
-                  }
+                  {getDurationDisplay(tour)}
                 </div>
                 {tour.maxGroupSize && (
                   <div className="flex items-center text-gray-600">
@@ -356,7 +372,7 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* Guide Information (unchanged) */}
+            {/* Guide Information */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Guide
@@ -386,7 +402,7 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* ENHANCED: Location Information */}
+            {/* Location Information */}
             {tour.location && (tour.location.country || tour.location.city) && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -424,7 +440,7 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* Tour Description (unchanged) */}
+            {/* Tour Description */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Description
@@ -434,7 +450,7 @@ const ToursManagement = () => {
               </p>
             </div>
 
-            {/* ENHANCED: Availability Information */}
+            {/* Availability Information */}
             {tour.availability && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -486,8 +502,8 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* NEW: Package Details Section (Only for Package Tours) */}
-            {tour.tourType === 'package' && tour.packageDetails && (
+            {/* Package Details Section (Only for Package Tours) */}
+            {normalizedType === 'package' && tour.packageDetails && (
               <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Package Details
@@ -642,7 +658,7 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* ENHANCED: Meeting Point Information */}
+            {/* Meeting Point Information */}
             {tour.meetingPoint && (tour.meetingPoint.name || tour.meetingPoint.instructions) && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -679,7 +695,7 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* Tour Features (unchanged) */}
+            {/* Tour Features */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Features
@@ -706,8 +722,8 @@ const ToursManagement = () => {
               </div>
             </div>
 
-            {/* NEW: Inclusions for Day Trips */}
-            {tour.tourType === 'day_trip' && tour.inclusions?.length > 0 && (
+            {/* Inclusions for Day Trips */}
+            {normalizedType === 'day_trip' && tour.inclusions?.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Tour Inclusions
@@ -723,7 +739,7 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* NEW: Additional Information */}
+            {/* Additional Information */}
             {tour.additionalInfo && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -824,7 +840,7 @@ const ToursManagement = () => {
               </div>
             )}
 
-            {/* Status Management Section (unchanged from original) */}
+            {/* Status Management Section */}
             <div className="bg-gray-50 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Status Management
@@ -974,7 +990,7 @@ const ToursManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (unchanged) */}
+      {/* Header */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white">
         <div className="flex items-center justify-between">
           <div>
@@ -989,7 +1005,7 @@ const ToursManagement = () => {
         </div>
       </div>
 
-      {/* ENHANCED: Stats Cards with Tour Type Information */}
+      {/* Stats Cards with Tour Type Information */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
@@ -1078,7 +1094,7 @@ const ToursManagement = () => {
         </div>
       </div>
 
-      {/* ENHANCED: Filters and Search with Tour Type Filter */}
+      {/* Filters and Search with Tour Type Filter */}
       <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -1149,7 +1165,7 @@ const ToursManagement = () => {
         </div>
       </div>
 
-      {/* ENHANCED: Tours Table with Tour Type Column */}
+      {/* Tours Table with Tour Type Column */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1208,7 +1224,6 @@ const ToursManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {/* ENHANCED: Tour Type and Category */}
                       <div className="space-y-2">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${tourTypeDisplay.color}`}>
                           {tourTypeDisplay.icon}
@@ -1236,12 +1251,10 @@ const ToursManagement = () => {
                         ${tour.pricePerPerson}
                       </p>
                       <div className="text-sm text-gray-600 mt-1">
+                        {/* FIXED: Duration Display */}
                         <div className="flex items-center">
                           <ClockIcon className="w-4 h-4 mr-1" />
-                          {tour.tourType === 'package' 
-                            ? `${tour.packageDetails?.totalDays || 1} days`
-                            : `${tour.duration}h`
-                          }
+                          {getDurationDisplay(tour)}
                         </div>
                         {tour.maxGroupSize && (
                           <div className="flex items-center">
