@@ -42,10 +42,12 @@ export default function DashboardLayout({ children }) {
     { id: 'bookings', name: 'Bookings', icon: CalendarDaysIcon, href: '/dashboard/bookings', badge: null },
     { id: 'earnings', name: 'Earnings', icon: CurrencyDollarIcon, href: '/dashboard/earnings', badge: badges.earnings },
     { id: 'withdrawals', name: 'Withdrawals', icon: BanknotesIcon, href: '/dashboard/withdrawals', badge: badges.withdrawals },
+    { id: 'firebase-analytics', name: 'Firebase Analytics', icon: FireIcon, href: '/dashboard/firebase-analytics', badge: null },
     { id: 'chat', name: 'Live Chat', icon: ChatBubbleLeftIcon, href: '/dashboard/chat', badge: badges.chat },
     { id: 'email', name: 'Send Email', icon: PaperAirplaneIcon, href: '/dashboard/email', badge: null },
+   
     { id: 'analytics', name: 'Analytics', icon: ChartBarSquareIcon, href: '/dashboard/analytics', badge: null },
-    { id: 'firebase-analytics', name: 'Firebase Analytics', icon: FireIcon, href: '/dashboard/firebase-analytics', badge: null },
+   
     // { id: 'settings', name: 'Settings', icon: Cog6ToothIcon, href: '/dashboard/settings', badge: null }
   ];
 
