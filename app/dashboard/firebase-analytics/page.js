@@ -55,40 +55,24 @@ const FirebaseAnalyticsPage = () => {
     try {
       console.log('Fetching Firebase Analytics data...');
       
-      // Fetch comprehensive Firebase Analytics data
+      // Use the new direct methods instead of request()
       const [eventsResponse, behaviorResponse, performanceResponse] = await Promise.all([
-        apiService.request('/api/admin/analytics/firebase-events', {
-          method: 'POST',
-          body: JSON.stringify({
-            period: selectedPeriod,
-            eventFilter: selectedFilter,
-            includeErrors: true
-          }),
-          useCache: false // Always get fresh analytics data
-        }).catch(err => {
+        apiService.getFirebaseEvents(selectedPeriod, selectedFilter).catch(err => {
           console.error('Events API Error:', err);
           throw new Error(`Events API failed: ${err.message}`);
         }),
         
-        apiService.request('/api/admin/analytics/user-behavior', {
-          method: 'POST',
-          body: JSON.stringify({ period: selectedPeriod }),
-          useCache: false
-        }).catch(err => {
+        apiService.getUserBehavior(selectedPeriod).catch(err => {
           console.error('Behavior API Error:', err);
           return null; // Non-critical
         }),
         
-        apiService.request('/api/admin/analytics/performance', {
-          method: 'POST', 
-          body: JSON.stringify({ period: selectedPeriod }),
-          useCache: false
-        }).catch(err => {
+        apiService.getPerformanceData(selectedPeriod).catch(err => {
           console.error('Performance API Error:', err);
           return null; // Non-critical
         })
       ]);
-
+  
       // Process events response (critical)
       if (eventsResponse?.success) {
         setEvents(eventsResponse.data.events || []);
@@ -98,7 +82,7 @@ const FirebaseAnalyticsPage = () => {
       } else {
         throw new Error('Failed to load events data');
       }
-
+  
       // Process behavior response (optional)
       if (behaviorResponse?.success) {
         const behaviorData = behaviorResponse.data || {};
@@ -108,14 +92,14 @@ const FirebaseAnalyticsPage = () => {
         setConversionFunnel(behaviorData.conversionFunnel || []);
         console.log('✅ Behavior data loaded:', behaviorData);
       }
-
+  
       // Process performance response (optional)
       if (performanceResponse?.success) {
         setPerformance(performanceResponse.data || []);
         console.log('✅ Performance data loaded:', performanceResponse.data);
       }
-
-      setRetryCount(0); // Reset retry count on success
+  
+      setRetryCount(0);
       
     } catch (error) {
       console.error('❌ Firebase Analytics Error:', error);
