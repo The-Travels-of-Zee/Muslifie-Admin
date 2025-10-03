@@ -35,14 +35,15 @@ import {
   ExclamationTriangleIcon,
   PhoneIcon,
   BriefcaseIcon,
-  LightBulbIcon
+  LightBulbIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
 const ToursManagement = () => {
   const [selectedFilter, setSelectedFilter] = useState('pending_review');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedTourType, setSelectedTourType] = useState('all'); // NEW
+  const [selectedTourType, setSelectedTourType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTour, setSelectedTour] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
@@ -57,16 +58,16 @@ const ToursManagement = () => {
     active: 0,
     rejected: 0,
     total: 0,
-    packages: 0, // NEW
-    dayTrips: 0  // NEW
+    packages: 0,
+    dayTrips: 0
   });
 
-  // NEW: Helper function to normalize tourType (treat missing as day_trip)
+  // Helper function to normalize tourType (treat missing as day_trip)
   const normalizeTourType = (tourType) => {
     return tourType || 'day_trip';
   };
 
-  // NEW: Helper function to get correct duration display
+  // Helper function to get correct duration display
   const getDurationDisplay = (tour) => {
     const normalizedType = normalizeTourType(tour.tourType);
     if (normalizedType === 'package') {
@@ -78,7 +79,7 @@ const ToursManagement = () => {
     }
   };
 
-  // ENHANCED: Fetch tours with tourType filter
+  // Fetch tours with tourType filter
   const fetchTours = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -88,7 +89,7 @@ const ToursManagement = () => {
       const filters = {
         status: selectedFilter === 'all' ? undefined : selectedFilter,
         category: selectedCategory === 'all' ? undefined : selectedCategory,
-        tourType: selectedTourType === 'all' ? undefined : selectedTourType, // NEW
+        tourType: selectedTourType === 'all' ? undefined : selectedTourType,
         search: searchTerm || undefined,
         page: 1,
         limit: 20
@@ -109,8 +110,8 @@ const ToursManagement = () => {
         active: allTours.filter(t => t.status === 'active').length,
         rejected: allTours.filter(t => t.status === 'rejected').length,
         total: allTours.length,
-        packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length, // NEW with normalization
-        dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length // NEW with normalization
+        packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
+        dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
       });
       
       setError(null);
@@ -136,7 +137,6 @@ const ToursManagement = () => {
     return () => clearTimeout(timeoutId);
   }, [selectedFilter, selectedCategory, selectedTourType, searchTerm]);
 
-  // Helper functions (unchanged)
   const getStatusColor = (status) => {
     switch (status) {
       case 'draft':
@@ -175,7 +175,6 @@ const ToursManagement = () => {
     }
   };
 
-  // NEW: Get tour type icon and color (with normalization)
   const getTourTypeDisplay = (tourType) => {
     const normalizedType = normalizeTourType(tourType);
     switch (normalizedType) {
@@ -248,6 +247,50 @@ const ToursManagement = () => {
     }
   };
 
+  const handleDeleteTour = async (tourId, deleteReason) => {
+    setProcessingAction(tourId);
+    try {
+      await apiService.deleteTour(tourId, deleteReason);
+      
+      // Remove tour from state
+      setTours(prevTours => prevTours.filter(tour => tour._id !== tourId));
+      
+      // Update stats
+      setStats(prevStats => {
+        const newStats = { ...prevStats };
+        const tour = tours.find(t => t._id === tourId);
+        
+        if (tour) {
+          newStats.total = Math.max(0, newStats.total - 1);
+          
+          if (tour.status === 'pending_review') newStats.pending = Math.max(0, newStats.pending - 1);
+          else if (tour.status === 'active') newStats.active = Math.max(0, newStats.active - 1);
+          else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
+          
+          const normalizedType = normalizeTourType(tour.tourType);
+          if (normalizedType === 'package') newStats.packages = Math.max(0, newStats.packages - 1);
+          else newStats.dayTrips = Math.max(0, newStats.dayTrips - 1);
+        }
+        
+        return newStats;
+      });
+      
+      setSelectedTour(null);
+      alert('Tour deleted successfully!');
+      
+      // Refresh tours list
+      setTimeout(() => {
+        fetchTours(false);
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error deleting tour:', error);
+      alert(error.message || 'Failed to delete tour. Please try again.');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   const viewDetails = async (tour) => {
     setSelectedTour(tour);
   };
@@ -257,6 +300,8 @@ const ToursManagement = () => {
     const [actionNotes, setActionNotes] = useState('');
     const [selectedStatus, setSelectedStatus] = useState(tour.status);
     const [statusReason, setStatusReason] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteReason, setDeleteReason] = useState('');
 
     const allStatuses = [
       { value: 'draft', label: 'Draft', color: 'text-gray-600', description: 'Tour is in draft mode' },
@@ -281,6 +326,16 @@ const ToursManagement = () => {
 
       const notes = statusReason.trim() || actionNotes.trim() || `Status changed to ${selectedStatus} by admin`;
       handleAction(tour._id, selectedStatus, { reviewNotes: notes });
+    };
+
+    const handleConfirmDelete = () => {
+      if (!deleteReason.trim()) {
+        alert('Please provide a reason for deleting this tour.');
+        return;
+      }
+      handleDeleteTour(tour._id, deleteReason);
+      setShowDeleteConfirm(false);
+      setDeleteReason('');
     };
 
     const tourTypeDisplay = getTourTypeDisplay(tour.tourType);
@@ -316,7 +371,6 @@ const ToursManagement = () => {
                       {getStatusIcon(tour.status)}
                       <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
                     </span>
-                    {/* NEW: Tour Type Badge */}
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${tourTypeDisplay.color}`}>
                       {tourTypeDisplay.icon}
                       <span className="ml-1">{tourTypeDisplay.label}</span>
@@ -342,7 +396,6 @@ const ToursManagement = () => {
                 </div>
               </div>
 
-              {/* FIXED: Tour Details Grid with correct duration display */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="flex items-center text-gray-600">
                   <ClockIcon className="w-4 h-4 mr-2" />
@@ -960,8 +1013,96 @@ const ToursManagement = () => {
                 </div>
               )}
             </div>
+
+            {/* DELETE TOUR SECTION - DANGER ZONE */}
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
+              <div className="flex items-start">
+                <ExclamationTriangleIcon className="w-6 h-6 text-red-600 mr-3 mt-1 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    Danger Zone
+                  </h4>
+                  <p className="text-sm text-red-700 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    Permanently delete this tour from the system. This action cannot be undone and will remove all associated data including bookings history, reviews, and analytics.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                  >
+                    <TrashIcon className="w-5 h-5 mr-2" />
+                    Delete Tour Permanently
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-10">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+              <div className="text-center mb-6">
+                <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <TrashIcon className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Delete Tour Permanently?
+                </h3>
+                <p className="text-gray-600 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  You are about to permanently delete:
+                </p>
+                <p className="font-semibold text-gray-900 mb-2">"{tour.title}"</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-800">
+                    <strong>Warning:</strong> This will delete all tour data, bookings, and cannot be recovered.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  Deletion Reason (Required) <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows="4"
+                  placeholder="Explain why this tour is being permanently deleted. This reason will be sent to the tour guide."
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                />
+                {deleteReason.trim() && (
+                  <p className="mt-2 text-xs text-gray-600">
+                    {deleteReason.trim().length} characters
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteReason('');
+                  }}
+                  className="flex-1 py-3 px-6 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-xl font-semibold transition-colors"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={processingAction === tour._id || !deleteReason.trim()}
+                  className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                >
+                  {processingAction === tour._id ? 'Deleting...' : 'Yes, Delete Tour'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1063,7 +1204,6 @@ const ToursManagement = () => {
           </div>
         </div>
 
-        {/* NEW: Package Tours Stats */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
             <div className="bg-purple-100 p-3 rounded-xl">
@@ -1078,7 +1218,6 @@ const ToursManagement = () => {
           </div>
         </div>
 
-        {/* NEW: Day Trips Stats */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
             <div className="bg-indigo-100 p-3 rounded-xl">
@@ -1126,7 +1265,6 @@ const ToursManagement = () => {
                 <option value="archived">Archived</option>
               </select>
 
-              {/* NEW: Tour Type Filter */}
               <select
                 value={selectedTourType}
                 onChange={(e) => setSelectedTourType(e.target.value)}
@@ -1251,7 +1389,6 @@ const ToursManagement = () => {
                         ${tour.pricePerPerson}
                       </p>
                       <div className="text-sm text-gray-600 mt-1">
-                        {/* FIXED: Duration Display */}
                         <div className="flex items-center">
                           <ClockIcon className="w-4 h-4 mr-1" />
                           {getDurationDisplay(tour)}
