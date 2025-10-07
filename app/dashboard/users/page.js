@@ -55,7 +55,7 @@ const UsersManagement = () => {
         verificationStatus: selectedFilter === 'all' ? undefined : selectedFilter,
         search: searchTerm || undefined,
         page: 1,
-        limit: 20
+        limit: 50
       };
 
       // Remove undefined values

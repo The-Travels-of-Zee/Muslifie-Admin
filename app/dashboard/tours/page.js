@@ -92,7 +92,7 @@ const ToursManagement = () => {
         tourType: selectedTourType === 'all' ? undefined : selectedTourType,
         search: searchTerm || undefined,
         page: 1,
-        limit: 20
+        limit: 50
       };
 
       // Remove undefined values
