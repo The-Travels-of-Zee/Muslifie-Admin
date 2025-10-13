@@ -17,7 +17,8 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   CalendarDaysIcon,
-  StarIcon
+  StarIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
@@ -27,6 +28,9 @@ const UsersManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
   
   // Real state management
   const [users, setUsers] = useState([]);
@@ -43,7 +47,7 @@ const UsersManagement = () => {
     pendingVerification: 0
   });
 
-  // FIXED: Fetch users with showLoading parameter
+  // Fetch users
   const fetchUsers = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -58,14 +62,10 @@ const UsersManagement = () => {
         limit: 50
       };
 
-      // Remove undefined values
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
       const response = await apiService.getUsers(filters);
       
-      console.log('Users API Response:', response);
-      
-      // Handle response structure
       let usersData, paginationData;
       if (response.data) {
         usersData = response.data.users || [];
@@ -78,7 +78,6 @@ const UsersManagement = () => {
       setUsers(usersData);
       setPagination(paginationData);
       
-      // Calculate stats from users data
       const newStats = {
         travelers: usersData.filter(u => u.userType === 'traveler').length,
         guides: usersData.filter(u => u.userType === 'guide').length,
@@ -98,20 +97,17 @@ const UsersManagement = () => {
     }
   };
 
-  // Initial load with loading state
   useEffect(() => {
     fetchUsers(true);
   }, []);
 
-  // Filter changes without loading state (debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchUsers(false); // Don't show loading for filter changes
+      fetchUsers(false);
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [selectedFilter, selectedUserType, searchTerm]);
 
-  // FIXED: No full screen reload on verification actions
   const handleVerificationAction = async (userId, action) => {
     setProcessingAction(userId);
     
@@ -120,7 +116,6 @@ const UsersManagement = () => {
 
       await apiService.updateUserVerificationStatus(userId, status);
       
-      // Update local state instead of full refetch
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user._id === userId 
@@ -129,14 +124,12 @@ const UsersManagement = () => {
         )
       );
       
-      // Update selectedUser if it's the same user
       setSelectedUser(prevUser => 
         prevUser && prevUser._id === userId 
           ? { ...prevUser, verificationStatus: status }
           : prevUser
       );
       
-      // Update stats based on the change
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const user = users.find(u => u._id === userId);
@@ -154,7 +147,6 @@ const UsersManagement = () => {
       
       alert(`User verification ${action}ed successfully!`);
       
-      // Background cache refresh without loading state
       setTimeout(() => {
         apiService.getUsers({}, { forceRefresh: true }).catch(console.error);
       }, 1000);
@@ -162,6 +154,49 @@ const UsersManagement = () => {
     } catch (error) {
       console.error(`Error ${action}ing user verification:`, error);
       alert(`Failed to ${action} user verification. Please try again.`);
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  // NEW: Handle delete user
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    setProcessingAction(userToDelete._id);
+    
+    try {
+      await apiService.deleteUser(userToDelete._id, deleteReason);
+      
+      // Remove user from local state
+      setUsers(prevUsers => prevUsers.filter(user => user._id !== userToDelete._id));
+      
+      // Update stats
+      setStats(prevStats => {
+        const newStats = { ...prevStats };
+        if (userToDelete.userType === 'traveler') newStats.travelers = Math.max(0, newStats.travelers - 1);
+        if (userToDelete.userType === 'guide') newStats.guides = Math.max(0, newStats.guides - 1);
+        if (userToDelete.userType === 'influencer') newStats.influencers = Math.max(0, newStats.influencers - 1);
+        if (userToDelete.verificationStatus === 'pending') newStats.pendingVerification = Math.max(0, newStats.pendingVerification - 1);
+        return newStats;
+      });
+      
+      // Close modals
+      setShowDeleteModal(false);
+      setSelectedUser(null);
+      setUserToDelete(null);
+      setDeleteReason('');
+      
+      alert('User deleted successfully!');
+      
+      // Background refresh
+      setTimeout(() => {
+        apiService.getUsers({}, { forceRefresh: true }).catch(console.error);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert(error.message || 'Failed to delete user. Please try again.');
     } finally {
       setProcessingAction(null);
     }
@@ -215,6 +250,71 @@ const UsersManagement = () => {
     return labels[serviceType] || serviceType;
   };
 
+  // Delete Confirmation Modal
+  const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-3xl max-w-lg w-full p-6">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ExclamationTriangleIcon className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+              Delete User Account
+            </h2>
+            <p className="text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              This action cannot be undone. All user data will be permanently deleted.
+            </p>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <h3 className="font-semibold text-red-900 mb-2">User Details:</h3>
+            <p className="text-red-800 text-sm">
+              <strong>Name:</strong> {user.fullName}<br />
+              <strong>Email:</strong> {user.email}<br />
+              <strong>Type:</strong> {user.userType}<br />
+              <strong>Status:</strong> {user.verificationStatus}
+            </p>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason for Deletion (Optional)
+            </label>
+            <textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              rows="3"
+              placeholder="e.g., Policy violation, spam account, user request..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={processingAction === user._id}
+              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={processingAction === user._id}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            >
+              {processingAction === user._id ? 'Deleting...' : 'Delete User'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // User Modal
   const UserModal = ({ user, onClose }) => {
     const [editMode, setEditMode] = useState(false);
 
@@ -447,6 +547,30 @@ const UsersManagement = () => {
                     {processingAction === user._id ? 'Processing...' : 'Reject Verification'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* NEW: Delete User Action */}
+            {user.userType !== 'admin' && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+                <h4 className="text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  Danger Zone
+                </h4>
+                <p className="text-sm text-red-700 mb-4">
+                  Permanently delete this user account and all associated data. This action cannot be undone.
+                </p>
+                <button
+                  onClick={() => {
+                    setUserToDelete(user);
+                    setShowDeleteModal(true);
+                  }}
+                  disabled={processingAction === user._id}
+                  className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                >
+                  <TrashIcon className="w-5 h-5 mr-2" />
+                  Delete User Account
+                </button>
               </div>
             )}
           </div>
@@ -725,6 +849,19 @@ const UsersManagement = () => {
         <UserModal
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <DeleteConfirmationModal
+          user={userToDelete}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setUserToDelete(null);
+            setDeleteReason('');
+          }}
+          onConfirm={handleDeleteUser}
         />
       )}
     </div>
