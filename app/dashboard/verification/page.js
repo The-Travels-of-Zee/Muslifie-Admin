@@ -20,13 +20,17 @@ import {
   ArrowDownTrayIcon,
   LinkIcon,
   PhoneIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  UserGroupIcon,
+  UserIcon,
+  BriefcaseIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
 const VerificationManagement = () => {
   const [selectedFilter, setSelectedFilter] = useState('pending');
   const [selectedServiceType, setSelectedServiceType] = useState('all');
+  const [selectedGuideType, setSelectedGuideType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
@@ -43,7 +47,6 @@ const VerificationManagement = () => {
     incompleteCount: 0
   });
 
-  // FIXED: Fetch verifications with showLoading parameter
   const fetchVerifications = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -53,12 +56,12 @@ const VerificationManagement = () => {
       const filters = {
         status: selectedFilter === 'all' ? undefined : selectedFilter,
         serviceType: selectedServiceType === 'all' ? undefined : selectedServiceType,
+        guideType: selectedGuideType === 'all' ? undefined : selectedGuideType,
         search: searchTerm || undefined,
         page: 1,
         limit: 20
       };
 
-      // Remove undefined values
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
       const response = await apiService.getVerifications(filters);
@@ -77,18 +80,51 @@ const VerificationManagement = () => {
     }
   };
 
-  // Initial load with loading state
   useEffect(() => {
     fetchVerifications(true);
   }, []);
 
-  // Filter changes without loading state (debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchVerifications(false); // Don't show loading for filter changes
+      fetchVerifications(false);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [selectedFilter, selectedServiceType, searchTerm]);
+  }, [selectedFilter, selectedServiceType, selectedGuideType, searchTerm]);
+
+  const getGuideTypeLabel = (guideType) => {
+    const labels = {
+      single_certified: 'Certified Guide',
+      single_uncertified: 'Uncertified Guide',
+      company: 'Company'
+    };
+    return labels[guideType] || 'Not Specified';
+  };
+
+  const getGuideTypeIcon = (guideType) => {
+    switch (guideType) {
+      case 'single_certified':
+        return <AcademicCapIcon className="w-4 h-4" />;
+      case 'single_uncertified':
+        return <UserIcon className="w-4 h-4" />;
+      case 'company':
+        return <BuildingOfficeIcon className="w-4 h-4" />;
+      default:
+        return <UserGroupIcon className="w-4 h-4" />;
+    }
+  };
+
+  const getGuideTypeColor = (guideType) => {
+    switch (guideType) {
+      case 'single_certified':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'single_uncertified':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'company':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -136,9 +172,95 @@ const VerificationManagement = () => {
     return labels[serviceType] || serviceType;
   };
 
-  const filteredVerifications = verifications; // Already filtered by API
+  // Normalize social media URLs
+  const normalizeSocialMediaUrl = (url, platform) => {
+    if (!url) return null;
+    
+    // Remove whitespace
+    url = url.trim();
+    
+    // If it's already a valid URL, return it
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Remove @ symbol if present
+    const username = url.replace('@', '').trim();
+    
+    // Platform-specific URL construction
+    const platformUrls = {
+      instagram: `https://instagram.com/${username}`,
+      facebook: `https://facebook.com/${username}`,
+      twitter: `https://twitter.com/${username}`,
+      linkedin: `https://linkedin.com/in/${username}`
+    };
+    
+    // If URL starts with platform domain but no protocol
+    if (url.includes('instagram.com') || url.includes('facebook.com') || 
+        url.includes('twitter.com') || url.includes('linkedin.com')) {
+      return `https://${url.replace(/^(https?:\/\/)/, '')}`;
+    }
+    
+    return platformUrls[platform] || `https://${username}`;
+  };
 
-  // FIXED: No full screen reload on actions
+  // Format date safely
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not available';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Not available';
+      }
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch (error) {
+      return 'Not available';
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'Not available';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Not available';
+      }
+      return date.toLocaleString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Not available';
+    }
+  };
+
+  const formatTime = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return '';
+    }
+  };
+
   const handleAction = async (verificationId, action, data = {}) => {
     setProcessingAction(verificationId);
     
@@ -149,7 +271,6 @@ const VerificationManagement = () => {
         await apiService.rejectVerification(verificationId, data.rejectionReason, data.requiredChanges);
       }
 
-      // Update local state instead of full refetch
       setVerifications(prevVerifications => 
         prevVerifications.map(verification => 
           verification._id === verificationId 
@@ -167,7 +288,6 @@ const VerificationManagement = () => {
         )
       );
       
-      // Update stats based on the change
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const verification = verifications.find(v => v._id === verificationId);
@@ -184,7 +304,6 @@ const VerificationManagement = () => {
       setSelectedVerification(null);
       alert(`Verification ${action}ed successfully!`);
       
-      // Background cache refresh without loading state
       setTimeout(() => {
         apiService.getVerifications({}, { forceRefresh: true }).catch(console.error);
       }, 1000);
@@ -197,12 +316,10 @@ const VerificationManagement = () => {
     }
   };
 
-  // FIXED: No full screen reload on document verification
   const handleDocumentVerification = async (verificationId, documentType, verified) => {
     try {
       await apiService.updateDocumentVerification(verificationId, documentType, verified);
       
-      // Update selectedVerification state directly
       setSelectedVerification(prevVerification => {
         if (!prevVerification || prevVerification._id !== verificationId) return prevVerification;
         
@@ -218,7 +335,6 @@ const VerificationManagement = () => {
         };
       });
       
-      // Also update the main verifications list
       setVerifications(prevVerifications => 
         prevVerifications.map(verification => 
           verification._id === verificationId 
@@ -246,7 +362,6 @@ const VerificationManagement = () => {
 
   const viewDetails = async (verificationId) => {
     try {
-      // Show loading only for the modal, not the whole screen
       setSelectedVerification({ loading: true });
       
       const response = await apiService.getVerificationDetails(verificationId);
@@ -261,11 +376,52 @@ const VerificationManagement = () => {
   const DocumentViewer = ({ document, type, title, verificationId }) => {
     if (!document || !document.fileUrl) return null;
 
+    const getDocumentIcon = (type) => {
+      switch (type) {
+        case 'tourGuideCertificate':
+          return <AcademicCapIcon className="w-5 h-5 text-purple-600 mr-2" />;
+        case 'governmentId':
+        case 'personInChargeId':
+          return <IdentificationIcon className="w-5 h-5 text-blue-600 mr-2" />;
+        case 'companyRegistration':
+        case 'businessLicense':
+          return <BuildingOfficeIcon className="w-5 h-5 text-indigo-600 mr-2" />;
+        case 'companyTaxDocument':
+          return <DocumentTextIcon className="w-5 h-5 text-green-600 mr-2" />;
+        default:
+          return <DocumentTextIcon className="w-5 h-5 text-blue-600 mr-2" />;
+      }
+    };
+
+    // Check if file is PDF
+    const isPDF = document.fileName?.toLowerCase().endsWith('.pdf') || 
+                  document.fileUrl?.toLowerCase().includes('.pdf');
+
+    const handleDocumentClick = (e) => {
+      if (isPDF) {
+        e.preventDefault();
+        // Open PDF in a new tab with proper handling
+        const newWindow = window.open(document.fileUrl, '_blank');
+        if (newWindow) {
+          newWindow.focus();
+        } else {
+          // If popup blocked, force download
+          const link = document.createElement('a');
+          link.href = document.fileUrl;
+          link.download = document.fileName || 'document.pdf';
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    };
+
     return (
       <div className="border border-gray-200 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
-            <DocumentTextIcon className="w-5 h-5 text-blue-600 mr-2" />
+            {getDocumentIcon(type)}
             <span className="font-medium text-gray-900">{title}</span>
           </div>
           <div className="flex items-center space-x-2">
@@ -276,17 +432,18 @@ const VerificationManagement = () => {
             )}
             <a
               href={document.fileUrl}
+              onClick={handleDocumentClick}
               target="_blank"
               rel="noopener noreferrer"
               className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
             >
-              View Document
+              {isPDF ? 'View PDF' : 'View Document'}
             </a>
           </div>
         </div>
         <div className="text-sm text-gray-600 mb-3">
           <p>File: {document.fileName}</p>
-          <p>Uploaded: {new Date(document.uploadedAt).toLocaleDateString()}</p>
+          <p>Uploaded: {formatDate(document.uploadedAt)}</p>
           <p>Status: <span className={document.verified ? 'text-green-600' : 'text-orange-600'}>
             {document.verified ? 'Verified' : 'Pending Review'}
           </span></p>
@@ -324,7 +481,6 @@ const VerificationManagement = () => {
       setRequiredChanges(updated);
     };
 
-    // Handle loading state
     if (verification?.loading) {
       return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -335,6 +491,41 @@ const VerificationManagement = () => {
         </div>
       );
     }
+
+    // Get required documents based on guide type
+    const getRequiredDocuments = () => {
+      if (!verification.guideType) {
+        // Legacy verification
+        return [
+          { key: 'passportId', label: 'Passport/ID' },
+          { key: 'businessLicense', label: 'Business License' },
+          { key: 'professionalCert', label: 'Professional Certificate' },
+          { key: 'halalCert', label: 'Halal Certificate' }
+        ];
+      }
+
+      switch (verification.guideType) {
+        case 'single_certified':
+          return [
+            { key: 'tourGuideCertificate', label: 'Tour Guide Certificate' },
+            { key: 'governmentId', label: 'Government ID' }
+          ];
+        case 'single_uncertified':
+          return [
+            { key: 'governmentId', label: 'Government ID' }
+          ];
+        case 'company':
+          return [
+            { key: 'companyRegistration', label: 'Company Registration' },
+            { key: 'personInChargeId', label: 'Person in Charge ID' },
+            { key: 'companyTaxDocument', label: 'Company Tax Document' }
+          ];
+        default:
+          return [];
+      }
+    };
+
+    const requiredDocs = getRequiredDocuments();
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -386,12 +577,21 @@ const VerificationManagement = () => {
                     <span className="ml-2 capitalize">{verification.verificationStatus}</span>
                   </span>
                   <p className="text-sm text-gray-600 mt-2">
-                    Submitted: {verification.submittedAt ? new Date(verification.submittedAt).toLocaleDateString() : 'Not submitted'}
+                    Submitted: {formatDate(verification.submittedAt)}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {verification.guideType && (
+                  <div className="bg-white p-4 rounded-xl">
+                    <p className="text-sm text-gray-600">Guide Type</p>
+                    <div className="flex items-center mt-1">
+                      {getGuideTypeIcon(verification.guideType)}
+                      <p className="font-semibold text-gray-900 ml-1">{getGuideTypeLabel(verification.guideType)}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-white p-4 rounded-xl">
                   <p className="text-sm text-gray-600">Service Type</p>
                   <p className="font-semibold text-gray-900">{getServiceTypeLabel(verification.serviceType)}</p>
@@ -418,14 +618,15 @@ const VerificationManagement = () => {
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Verification Progress
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                 {[
+                  ...(verification.guideType ? [{ key: 'guideTypeSelection', label: 'Guide Type', icon: UserGroupIcon }] : []),
                   { key: 'basicInfo', label: 'Basic Info', icon: IdentificationIcon },
                   { key: 'documents', label: 'Documents', icon: DocumentTextIcon },
                   { key: 'knowledgeTest', label: 'Knowledge Test', icon: AcademicCapIcon },
                   { key: 'onlinePresence', label: 'Online Presence', icon: GlobeAltIcon },
                   { key: 'review', label: 'Admin Review', icon: ShieldCheckIcon }
-                ].map((step, index) => (
+                ].map((step) => (
                   <div key={step.key} className={`p-3 rounded-xl border-2 ${
                     verification.completedSteps?.[step.key]
                       ? 'border-green-200 bg-green-50' 
@@ -461,32 +662,23 @@ const VerificationManagement = () => {
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Uploaded Documents
+                {verification.guideType && (
+                  <span className={`ml-3 text-sm px-3 py-1 rounded-full border ${getGuideTypeColor(verification.guideType)}`}>
+                    {getGuideTypeIcon(verification.guideType)}
+                    <span className="ml-1">{getGuideTypeLabel(verification.guideType)}</span>
+                  </span>
+                )}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DocumentViewer 
-                  document={verification.documents?.passportId} 
-                  type="passportId"
-                  title="Passport/ID"
-                  verificationId={verification._id}
-                />
-                <DocumentViewer 
-                  document={verification.documents?.businessLicense} 
-                  type="businessLicense"
-                  title="Business License"
-                  verificationId={verification._id}
-                />
-                <DocumentViewer 
-                  document={verification.documents?.professionalCert} 
-                  type="professionalCert"
-                  title="Professional Certificate"
-                  verificationId={verification._id}
-                />
-                <DocumentViewer 
-                  document={verification.documents?.halalCert} 
-                  type="halalCert"
-                  title="Halal Certification"
-                  verificationId={verification._id}
-                />
+                {requiredDocs.map(doc => (
+                  <DocumentViewer 
+                    key={doc.key}
+                    document={verification.documents?.[doc.key]} 
+                    type={doc.key}
+                    title={doc.label}
+                    verificationId={verification._id}
+                  />
+                ))}
               </div>
             </div>
 
@@ -510,7 +702,7 @@ const VerificationManagement = () => {
                       </p>
                       {verification.testResults.completedAt && (
                         <p className="text-xs text-gray-500">
-                          Completed: {new Date(verification.testResults.completedAt).toLocaleDateString()}
+                          Completed: {formatDate(verification.testResults.completedAt)}
                         </p>
                       )}
                     </div>
@@ -535,34 +727,47 @@ const VerificationManagement = () => {
                 {verification.onlinePresence?.website && (
                   <div className="flex items-center p-3 bg-blue-50 rounded-xl">
                     <GlobeAltIcon className="w-5 h-5 text-blue-600 mr-3" />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900">Website</p>
-                      <a href={verification.onlinePresence.website} target="_blank" rel="noopener noreferrer" 
-                         className="text-blue-600 hover:text-blue-800 text-sm">
+                      <a 
+                        href={verification.onlinePresence.website.startsWith('http') 
+                          ? verification.onlinePresence.website 
+                          : `https://${verification.onlinePresence.website}`
+                        } 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-blue-600 hover:text-blue-800 text-sm truncate block"
+                      >
                         {verification.onlinePresence.website}
                       </a>
                     </div>
                   </div>
                 )}
-                {verification.onlinePresence?.socialMedia && Object.entries(verification.onlinePresence.socialMedia).map(([platform, url]) => (
-                  url && (
+                {verification.onlinePresence?.socialMedia && Object.entries(verification.onlinePresence.socialMedia).map(([platform, url]) => {
+                  const normalizedUrl = normalizeSocialMediaUrl(url, platform);
+                  return normalizedUrl ? (
                     <div key={platform} className="flex items-center p-3 bg-purple-50 rounded-xl">
                       <LinkIcon className="w-5 h-5 text-purple-600 mr-3" />
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 capitalize">{platform}</p>
-                        <a href={url} target="_blank" rel="noopener noreferrer" 
-                           className="text-purple-600 hover:text-purple-800 text-sm">
-                          {platform} Profile
+                        <a 
+                          href={normalizedUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-purple-600 hover:text-purple-800 text-sm truncate block"
+                        >
+                          {url.replace('@', '')}
                         </a>
                       </div>
                     </div>
-                  )
-                ))}
+                  ) : null;
+                })}
               </div>
             </div>
 
             {/* Previous Admin Review */}
-            {verification.adminReview && (
+            {verification.adminReview && verification.adminReview.reviewedAt && 
+             !isNaN(new Date(verification.adminReview.reviewedAt).getTime()) && (
               <div className={`border-2 rounded-2xl p-6 ${
                 verification.verificationStatus === 'approved' 
                   ? 'border-green-200 bg-green-50'
@@ -573,7 +778,7 @@ const VerificationManagement = () => {
                 </h4>
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    Reviewed on: {new Date(verification.adminReview.reviewedAt).toLocaleDateString()}
+                    Reviewed on: {formatDateTime(verification.adminReview.reviewedAt)}
                   </p>
                   {verification.adminReview.reviewNotes && (
                     <div>
@@ -823,6 +1028,18 @@ const VerificationManagement = () => {
               </select>
 
               <select
+                value={selectedGuideType}
+                onChange={(e) => setSelectedGuideType(e.target.value)}
+                className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                <option value="all">All Guide Types</option>
+                <option value="single_certified">Certified Guide</option>
+                <option value="single_uncertified">Uncertified Guide</option>
+                <option value="company">Company</option>
+              </select>
+
+              <select
                 value={selectedServiceType}
                 onChange={(e) => setSelectedServiceType(e.target.value)}
                 className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
@@ -860,6 +1077,9 @@ const VerificationManagement = () => {
                   Business
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  Guide Type
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Service Type
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -877,7 +1097,7 @@ const VerificationManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredVerifications.map((verification) => (
+              {verifications.map((verification) => (
                 <tr key={verification._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
@@ -902,6 +1122,16 @@ const VerificationManagement = () => {
                     <p className="text-sm text-gray-600">{verification.yearsOfExperience} years experience</p>
                   </td>
                   <td className="px-6 py-4">
+                    {verification.guideType ? (
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getGuideTypeColor(verification.guideType)}`}>
+                        {getGuideTypeIcon(verification.guideType)}
+                        <span className="ml-1">{getGuideTypeLabel(verification.guideType)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Legacy</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
                     <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                       {getServiceTypeLabel(verification.serviceType)}
                     </span>
@@ -924,15 +1154,19 @@ const VerificationManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    {verification.submittedAt && (
+                    {verification.submittedAt ? (
                       <>
                         <p className="text-sm text-gray-900">
-                          {new Date(verification.submittedAt).toLocaleDateString()}
+                          {formatDate(verification.submittedAt)}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(verification.submittedAt).toLocaleTimeString()}
-                        </p>
+                        {formatTime(verification.submittedAt) && (
+                          <p className="text-xs text-gray-500">
+                            {formatTime(verification.submittedAt)}
+                          </p>
+                        )}
                       </>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Not submitted</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
@@ -950,7 +1184,7 @@ const VerificationManagement = () => {
           </table>
         </div>
 
-        {filteredVerifications.length === 0 && (
+        {verifications.length === 0 && (
           <div className="text-center py-12">
             <ShieldCheckIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
