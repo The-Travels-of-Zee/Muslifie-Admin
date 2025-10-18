@@ -90,7 +90,18 @@ function ChatPageContent() {
             content: message.content.substring(0, 50)
           });
           
-          if (selectedConversationRef.current?.conversationId === message.conversationId) {
+          // ✅ FIX: Update temp conversation with real conversationId
+          if (selectedConversationRef.current?.conversationId.startsWith('user_') && 
+              message.conversationId !== selectedConversationRef.current?.conversationId) {
+            console.log('🔄 Updating temp conversation with real ID:', message.conversationId);
+            setSelectedConversation(prev => ({
+              ...prev,
+              conversationId: message.conversationId
+            }));
+          }
+          
+          if (selectedConversationRef.current?.conversationId === message.conversationId ||
+              selectedConversationRef.current?.conversationId.startsWith('user_')) {
             console.log('✅ Message belongs to current conversation, adding to UI');
             setMessages(prev => {
               if (prev.some(m => m._id === message._id)) {
@@ -111,6 +122,7 @@ function ChatPageContent() {
             )
           );
         });
+        
 
         newSocket.on('conversation_joined', (data) => {
           console.log('✅ Joined conversation:', data.conversation.conversationId);
@@ -139,6 +151,38 @@ function ChatPageContent() {
 
         newSocket.on('message_sent', (data) => {
           console.log('✅ Message sent confirmation received');
+          const { message, conversationId } = data;
+          
+          // ✅ FIX: Update temp conversation ID with real one
+          if (selectedConversationRef.current?.conversationId.startsWith('user_') && 
+              conversationId && conversationId !== selectedConversationRef.current?.conversationId) {
+            console.log('🔄 Updating conversation ID from temp to real:', conversationId);
+            
+            setSelectedConversation(prev => ({
+              ...prev,
+              conversationId: conversationId
+            }));
+            
+            // Leave old room and join new room
+            newSocket.emit('leave_conversation', { 
+              conversationId: selectedConversationRef.current?.conversationId 
+            });
+            newSocket.emit('join_conversation', { 
+              conversationId: conversationId 
+            });
+            
+            console.log('🚪 Switched to real conversation room:', conversationId);
+          }
+          
+          // Add the message if it's not already there
+          if (message && selectedConversationRef.current) {
+            setMessages(prev => {
+              if (prev.some(m => m._id === message._id)) {
+                return prev;
+              }
+              return [...prev, message];
+            });
+          }
         });
 
         setSocket(newSocket);
