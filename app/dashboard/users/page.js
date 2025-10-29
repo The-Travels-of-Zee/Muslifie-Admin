@@ -32,14 +32,13 @@ const UsersManagement = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
   
-  // Real state management
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
 
-  // Stats state
+  // ✅ FIXED: Stats are now separate and fetched independently
   const [stats, setStats] = useState({
     travelers: 0,
     guides: 0,
@@ -47,7 +46,52 @@ const UsersManagement = () => {
     pendingVerification: 0
   });
 
-  // Fetch users
+  // ✅ NEW: Fetch stats separately from ALL users (no filters)
+  const fetchStats = async () => {
+    try {
+      // Fetch counts for each user type
+      const [travelersRes, guidesRes, influencersRes, pendingRes] = await Promise.allSettled([
+        apiService.getUsers({ userType: 'traveler', limit: 1 }),
+        apiService.getUsers({ userType: 'guide', limit: 1 }),
+        apiService.getUsers({ userType: 'influencer', limit: 1 }),
+        apiService.getUsers({ verificationStatus: 'pending', limit: 1 })
+      ]);
+
+      const newStats = {
+        travelers: 0,
+        guides: 0,
+        influencers: 0,
+        pendingVerification: 0
+      };
+
+      // Extract total counts from pagination data
+      if (travelersRes.status === 'fulfilled' && travelersRes.value) {
+        const data = travelersRes.value.data || travelersRes.value;
+        newStats.travelers = data.pagination?.totalUsers || 0;
+      }
+
+      if (guidesRes.status === 'fulfilled' && guidesRes.value) {
+        const data = guidesRes.value.data || guidesRes.value;
+        newStats.guides = data.pagination?.totalUsers || 0;
+      }
+
+      if (influencersRes.status === 'fulfilled' && influencersRes.value) {
+        const data = influencersRes.value.data || influencersRes.value;
+        newStats.influencers = data.pagination?.totalUsers || 0;
+      }
+
+      if (pendingRes.status === 'fulfilled' && pendingRes.value) {
+        const data = pendingRes.value.data || pendingRes.value;
+        newStats.pendingVerification = data.pagination?.totalUsers || 0;
+      }
+
+      setStats(newStats);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // ✅ FIXED: Fetch users for table (with filters) - NO stats calculation here
   const fetchUsers = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -78,13 +122,7 @@ const UsersManagement = () => {
       setUsers(usersData);
       setPagination(paginationData);
       
-      const newStats = {
-        travelers: usersData.filter(u => u.userType === 'traveler').length,
-        guides: usersData.filter(u => u.userType === 'guide').length,
-        influencers: usersData.filter(u => u.userType === 'influencer').length,
-        pendingVerification: usersData.filter(u => u.verificationStatus === 'pending').length
-      };
-      setStats(newStats);
+      // ✅ REMOVED: No longer calculating stats from filtered data
       
       setError(null);
     } catch (error) {
@@ -97,10 +135,13 @@ const UsersManagement = () => {
     }
   };
 
+  // ✅ Initial load: Fetch both stats and users
   useEffect(() => {
+    fetchStats(); // Fetch stats once on load
     fetchUsers(true);
   }, []);
 
+  // ✅ When filters change: Only fetch users, keep stats unchanged
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchUsers(false);
@@ -130,16 +171,13 @@ const UsersManagement = () => {
           : prevUser
       );
       
-      setStats(prevStats => {
-        const newStats = { ...prevStats };
-        const user = users.find(u => u._id === userId);
-        
-        if (user && user.verificationStatus === 'pending') {
-          newStats.pendingVerification = Math.max(0, newStats.pendingVerification - 1);
-        }
-        
-        return newStats;
-      });
+      // ✅ Update stats after action
+      if (status === 'approved' || status === 'rejected') {
+        setStats(prevStats => ({
+          ...prevStats,
+          pendingVerification: Math.max(0, prevStats.pendingVerification - 1)
+        }));
+      }
       
       if (selectedUser && selectedUser._id === userId) {
         setSelectedUser(null);
@@ -147,7 +185,9 @@ const UsersManagement = () => {
       
       alert(`User verification ${action}ed successfully!`);
       
+      // ✅ Refresh stats in background
       setTimeout(() => {
+        fetchStats();
         apiService.getUsers({}, { forceRefresh: true }).catch(console.error);
       }, 1000);
       
@@ -159,7 +199,6 @@ const UsersManagement = () => {
     }
   };
 
-  // NEW: Handle delete user
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     
@@ -168,10 +207,9 @@ const UsersManagement = () => {
     try {
       await apiService.deleteUser(userToDelete._id, deleteReason);
       
-      // Remove user from local state
       setUsers(prevUsers => prevUsers.filter(user => user._id !== userToDelete._id));
       
-      // Update stats
+      // ✅ Update stats after deletion
       setStats(prevStats => {
         const newStats = { ...prevStats };
         if (userToDelete.userType === 'traveler') newStats.travelers = Math.max(0, newStats.travelers - 1);
@@ -181,7 +219,6 @@ const UsersManagement = () => {
         return newStats;
       });
       
-      // Close modals
       setShowDeleteModal(false);
       setSelectedUser(null);
       setUserToDelete(null);
@@ -189,8 +226,9 @@ const UsersManagement = () => {
       
       alert('User deleted successfully!');
       
-      // Background refresh
+      // ✅ Refresh stats in background
       setTimeout(() => {
+        fetchStats();
         apiService.getUsers({}, { forceRefresh: true }).catch(console.error);
       }, 1000);
       
@@ -250,7 +288,6 @@ const UsersManagement = () => {
     return labels[serviceType] || serviceType;
   };
 
-  // Delete Confirmation Modal
   const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -314,7 +351,6 @@ const UsersManagement = () => {
     );
   };
 
-  // User Modal
   const UserModal = ({ user, onClose }) => {
     const [editMode, setEditMode] = useState(false);
 
@@ -344,7 +380,6 @@ const UsersManagement = () => {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* User Profile Header */}
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6">
               <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
                 <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -396,7 +431,6 @@ const UsersManagement = () => {
               </div>
             </div>
 
-            {/* User Statistics for Guides */}
             {user.userType === 'guide' && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -435,7 +469,6 @@ const UsersManagement = () => {
               </div>
             )}
 
-            {/* Influencer Profile URL */}
             {user.userType === 'influencer' && user.profileUrl && (
               <div className="bg-pink-50 border border-pink-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -452,7 +485,6 @@ const UsersManagement = () => {
               </div>
             )}
 
-            {/* Bio */}
             {user.bio && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -464,7 +496,6 @@ const UsersManagement = () => {
               </div>
             )}
 
-            {/* Languages */}
             {user.languages && user.languages.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -480,7 +511,6 @@ const UsersManagement = () => {
               </div>
             )}
 
-            {/* Account Status */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Account Status
@@ -521,7 +551,6 @@ const UsersManagement = () => {
               </div>
             </div>
 
-            {/* Admin Actions */}
             {user.verificationStatus === 'pending' && (
               <div className="bg-gray-50 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -550,7 +579,6 @@ const UsersManagement = () => {
               </div>
             )}
 
-            {/* NEW: Delete User Action */}
             {user.userType !== 'admin' && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -603,7 +631,6 @@ const UsersManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white">
         <div className="flex items-center justify-between">
           <div>
@@ -618,7 +645,7 @@ const UsersManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* ✅ Stats Cards - Now showing correct totals regardless of filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
@@ -677,7 +704,6 @@ const UsersManagement = () => {
         </div>
       </div>
 
-      {/* Filters and Search */}
       <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -730,7 +756,6 @@ const UsersManagement = () => {
         </div>
       </div>
 
-      {/* Users Table */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -844,7 +869,6 @@ const UsersManagement = () => {
         )}
       </div>
 
-      {/* User Detail Modal */}
       {selectedUser && (
         <UserModal
           user={selectedUser}
@@ -852,7 +876,6 @@ const UsersManagement = () => {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && userToDelete && (
         <DeleteConfirmationModal
           user={userToDelete}

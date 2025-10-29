@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // For Next.js 13+ (app directory)
-// import { useNavigate } from 'react-router-dom'; // For React Router (uncomment if using React Router)
+import { useRouter } from 'next/navigation';
 import {
   UsersIcon,
   MapIcon,
@@ -20,10 +19,8 @@ import {
 import apiService from '../../lib/apiService';
 
 export default function DashboardPage() {
-  const router = useRouter(); // Next.js navigation
-  // const navigate = useNavigate(); // React Router navigation (uncomment if using React Router)
+  const router = useRouter();
   
-  // Real state management
   const [dashboardData, setDashboardData] = useState({
     stats: {
       totalUsers: 0,
@@ -40,7 +37,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Growth calculations (you can enhance this with historical data)
   const [growthData, setGrowthData] = useState({
     userGrowth: 12.5,
     tourGrowth: 8.3,
@@ -48,13 +44,10 @@ export default function DashboardPage() {
     revenueGrowth: 18.7
   });
 
-  // Navigation handler for proper routing
   const handleNavigation = (path) => {
-    router.push(path); // Next.js
-    // navigate(path); // React Router (uncomment if using React Router)
+    router.push(path);
   };
 
-  // Fetch all dashboard data
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -63,21 +56,22 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch data from multiple endpoints in parallel
       const [
         analyticsResponse,
         usersResponse,
         bookingsResponse,
         earningsResponse,
         verificationsResponse,
-        toursResponse
+        activeToursResponse,
+        pendingToursResponse
       ] = await Promise.allSettled([
         apiService.getAnalytics(),
-        apiService.getUsers({ limit: 5 }), // Get recent users
-        apiService.getBookings({ limit: 5 }), // Get recent bookings
+        apiService.getUsers({ limit: 5 }),
+        apiService.getBookings({ limit: 5 }),
         apiService.getEarnings({ status: 'pending', limit: 10 }),
         apiService.getVerifications({ status: 'pending', limit: 10 }),
-        apiService.getTours({ status: 'pending_review', limit: 10 })
+        apiService.getTours({ status: 'active', limit: 50 }), // ✅ FIXED: Only get ACTIVE tours
+        apiService.getTours({ status: 'pending_review', limit: 10 }) // Get pending tours separately
       ]);
 
       console.log('Dashboard API Responses:', {
@@ -86,16 +80,15 @@ export default function DashboardPage() {
         bookings: bookingsResponse,
         earnings: earningsResponse,
         verifications: verificationsResponse,
-        tours: toursResponse
+        activeTours: activeToursResponse,
+        pendingTours: pendingToursResponse
       });
 
-      // Process analytics data
       let analytics = null;
       if (analyticsResponse.status === 'fulfilled' && analyticsResponse.value) {
         analytics = analyticsResponse.value.data || analyticsResponse.value;
       }
 
-      // Process users data
       let usersData = [];
       let totalUsers = 0;
       if (usersResponse.status === 'fulfilled' && usersResponse.value) {
@@ -104,7 +97,6 @@ export default function DashboardPage() {
         totalUsers = userData.pagination?.totalUsers || usersData.length;
       }
 
-      // Process bookings data
       let bookingsData = [];
       let totalBookings = 0;
       let totalRevenue = 0;
@@ -115,7 +107,6 @@ export default function DashboardPage() {
         totalRevenue = bookingData.stats?.totalRevenue || bookingsData.reduce((sum, b) => sum + (b.pricing?.totalAmount || 0), 0);
       }
 
-      // Process earnings data
       let pendingEarnings = 0;
       if (earningsResponse.status === 'fulfilled' && earningsResponse.value) {
         const earningData = earningsResponse.value.data || earningsResponse.value;
@@ -123,7 +114,6 @@ export default function DashboardPage() {
         pendingEarnings = earnings.filter(e => e.status === 'pending').length;
       }
 
-      // Process verifications data
       let pendingVerifications = 0;
       if (verificationsResponse.status === 'fulfilled' && verificationsResponse.value) {
         const verificationData = verificationsResponse.value.data || verificationsResponse.value;
@@ -131,22 +121,29 @@ export default function DashboardPage() {
         pendingVerifications = verifications.filter(v => v.verificationStatus === 'pending').length;
       }
 
-      // Process tours data
       let pendingTours = 0;
-      let totalTours = 0;
-      if (toursResponse.status === 'fulfilled' && toursResponse.value) {
-        const tourData = toursResponse.value.data || toursResponse.value;
+      let totalActiveTours = 0;
+      
+      // ✅ Get ACTIVE tours count only
+      if (activeToursResponse.status === 'fulfilled' && activeToursResponse.value) {
+        const tourData = activeToursResponse.value.data || activeToursResponse.value;
         const tours = tourData.tours || tourData || [];
-        pendingTours = tours.filter(t => t.status === 'pending_review').length;
-        totalTours = tourData.pagination?.totalTours || tours.length;
+        totalActiveTours = tourData.pagination?.totalTours || tours.length;
       }
 
-      // Use analytics data if available, otherwise use calculated values
+      // ✅ Get pending tours count separately
+      if (pendingToursResponse.status === 'fulfilled' && pendingToursResponse.value) {
+        const pendingTourData = pendingToursResponse.value.data || pendingToursResponse.value;
+        const pendingToursList = pendingTourData.tours || pendingTourData || [];
+        pendingTours = pendingToursList.filter(t => t.status === 'pending_review').length;
+      }
+
+      // ✅ FIXED: Use totalActiveTours (only active tours) instead of all tours
       const stats = {
         totalUsers: analytics?.overview?.users ? 
           Object.values(analytics.overview.users).reduce((sum, count) => sum + count, 0) : 
           totalUsers,
-        totalTours: analytics?.distribution?.toursByCategory?.length || totalTours,
+        totalTours: totalActiveTours, // ✅ FIXED: Only counting ACTIVE tours now
         totalBookings: analytics?.overview?.bookings ? 
           Object.values(analytics.overview.bookings).reduce((sum, item) => sum + (item.count || 0), 0) : 
           totalBookings,
@@ -156,10 +153,8 @@ export default function DashboardPage() {
         pendingTours
       };
 
-      // Create recent activity from various data sources
       const recentActivity = [];
 
-      // Add recent users
       usersData.slice(0, 2).forEach(user => {
         recentActivity.push({
           type: 'user',
@@ -171,7 +166,6 @@ export default function DashboardPage() {
         });
       });
 
-      // Add recent bookings
       bookingsData.slice(0, 2).forEach(booking => {
         recentActivity.push({
           type: 'booking',
@@ -183,7 +177,6 @@ export default function DashboardPage() {
         });
       });
 
-      // Add recent reviews from analytics if available
       if (analytics?.recentActivity?.reviews) {
         analytics.recentActivity.reviews.slice(0, 1).forEach(review => {
           recentActivity.push({
@@ -197,17 +190,15 @@ export default function DashboardPage() {
         });
       }
 
-      // Sort by time and limit
       recentActivity.sort((a, b) => new Date(b.time) - new Date(a.time));
       const limitedActivity = recentActivity.slice(0, 5);
 
-      // Create pending actions with proper navigation paths
       const pendingActions = [
         {
           title: 'Verification Requests',
           description: 'Review guide and service provider verifications',
           count: pendingVerifications,
-          path: '/dashboard/verification', // Use path instead of href
+          path: '/dashboard/verification',
           color: 'orange',
           icon: ShieldCheckIcon
         },
@@ -215,7 +206,7 @@ export default function DashboardPage() {
           title: 'Pending Earnings',
           description: 'Release pending payments to guides',
           count: pendingEarnings,
-          path: '/dashboard/earnings', // Use path instead of href
+          path: '/dashboard/earnings',
           color: 'green',
           icon: BanknotesIcon
         },
@@ -223,11 +214,11 @@ export default function DashboardPage() {
           title: 'Tour Approvals',
           description: 'Review and approve new tours',
           count: pendingTours,
-          path: '/dashboard/tours', // Use path instead of href
+          path: '/dashboard/tours',
           color: 'blue',
           icon: CheckBadgeIcon
         }
-      ].filter(action => action.count > 0); // Only show actions with pending items
+      ].filter(action => action.count > 0);
 
       setDashboardData({
         stats,
@@ -323,9 +314,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* ✅ FIXED: Stats Grid - Now Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        {/* Users Card - Clickable */}
+        <button
+          onClick={() => handleNavigation('/dashboard/users')}
+          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-200 text-left w-full"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-blue-100 p-3 rounded-xl">
               <UsersIcon className="w-6 h-6 text-blue-600" />
@@ -338,9 +333,14 @@ export default function DashboardPage() {
           <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Total Users
           </p>
-        </div>
+          <div className="mt-2 text-xs text-blue-600 font-medium">Click to manage →</div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        {/* Tours Card - Clickable */}
+        <button
+          onClick={() => handleNavigation('/dashboard/tours')}
+          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-200 text-left w-full"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-purple-100 p-3 rounded-xl">
               <MapIcon className="w-6 h-6 text-purple-600" />
@@ -353,9 +353,14 @@ export default function DashboardPage() {
           <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Active Tours
           </p>
-        </div>
+          <div className="mt-2 text-xs text-purple-600 font-medium">Click to manage →</div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        {/* Bookings Card - Clickable */}
+        <button
+          onClick={() => handleNavigation('/dashboard/bookings')}
+          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-200 text-left w-full"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-green-100 p-3 rounded-xl">
               <CalendarDaysIcon className="w-6 h-6 text-green-600" />
@@ -368,9 +373,14 @@ export default function DashboardPage() {
           <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Total Bookings
           </p>
-        </div>
+          <div className="mt-2 text-xs text-green-600 font-medium">Click to view →</div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        {/* Revenue Card - Clickable */}
+        <button
+          onClick={() => handleNavigation('/dashboard/earnings')}
+          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-200 text-left w-full"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-amber-100 p-3 rounded-xl">
               <CurrencyDollarIcon className="w-6 h-6 text-amber-600" />
@@ -383,12 +393,13 @@ export default function DashboardPage() {
           <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Total Revenue
           </p>
-        </div>
+          <div className="mt-2 text-xs text-amber-600 font-medium">Click to view →</div>
+        </button>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Pending Actions - FIXED NAVIGATION */}
+        {/* Pending Actions */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 mb-6" style={{ fontFamily: 'Jost, sans-serif' }}>
             Pending Actions
@@ -398,7 +409,7 @@ export default function DashboardPage() {
               dashboardData.pendingActions.map((action, index) => (
                 <button 
                   key={index}
-                  onClick={() => handleNavigation(action.path)} // ✅ FIXED: Using proper navigation
+                  onClick={() => handleNavigation(action.path)}
                   className={`w-full flex items-center justify-between p-4 border rounded-xl hover:bg-opacity-80 transition-colors cursor-pointer ${
                     action.color === 'orange' ? 'bg-orange-50 border-orange-200 hover:bg-orange-100' :
                     action.color === 'green' ? 'bg-green-50 border-green-200 hover:bg-green-100' :
@@ -454,7 +465,7 @@ export default function DashboardPage() {
               Recent Activity
             </h2>
             <button
-              onClick={() => handleNavigation('/dashboard/analytics')} // ✅ FIXED: Using proper navigation
+              onClick={() => handleNavigation('/dashboard/analytics')}
               className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
             >
               View All
