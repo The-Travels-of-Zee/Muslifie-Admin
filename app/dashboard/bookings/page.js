@@ -27,7 +27,8 @@ export default function AdminBookingsPage() {
 
   // Real state management
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState(null);
   const [stats, setStats] = useState({
@@ -35,37 +36,39 @@ export default function AdminBookingsPage() {
     confirmed: 0,
     completed: 0,
     cancelled: 0,
+    draft: 0,
     totalRevenue: 0,
     monthlyRevenue: 0
   });
   
   const [processingAction, setProcessingAction] = useState(null);
 
-  // Fetch bookings from API (removed searchTerm from dependencies to prevent loading on every keystroke)
   useEffect(() => {
     fetchBookings();
   }, [selectedTab, statusFilter, dateRange]);
 
   const fetchBookings = async () => {
     try {
-      setLoading(true);
+      if (initialLoading) {
+        setInitialLoading(true);
+      } else {
+        setLoading(true);
+      }
+      
       const filters = {
         status: selectedTab === 'all' ? undefined : selectedTab,
         paymentStatus: statusFilter === 'all' ? undefined : statusFilter,
-        // Removed search from API call - we'll filter client-side for better performance
         dateRange: dateRange === 'all' ? undefined : dateRange,
         page: 1,
-        limit: 100 // Increased limit since we're filtering client-side
+        limit: 100
       };
 
-      // Remove undefined values
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
       const response = await apiService.getBookings(filters);
       
       console.log('Bookings API Response:', response);
       
-      // Handle response structure
       let bookingsData, paginationData, statsData;
       if (response.data) {
         bookingsData = response.data.bookings || [];
@@ -80,12 +83,12 @@ export default function AdminBookingsPage() {
       setBookings(bookingsData);
       setPagination(paginationData);
       
-      // Calculate stats from bookings data and API response
       const newStats = {
         total: paginationData?.totalBookings || bookingsData.length,
         confirmed: bookingsData.filter(b => b.status === 'confirmed').length,
         completed: bookingsData.filter(b => b.status === 'completed').length,
         cancelled: bookingsData.filter(b => b.status === 'cancelled').length,
+        draft: bookingsData.filter(b => b.status === 'draft').length,
         totalRevenue: statsData.totalRevenue || bookingsData.reduce((sum, b) => sum + (b.pricing?.totalAmount || 0), 0),
         monthlyRevenue: statsData.monthlyRevenue || 0
       };
@@ -96,6 +99,7 @@ export default function AdminBookingsPage() {
       console.error('Error fetching bookings:', error);
       setError('Failed to load bookings. Please try again.');
     } finally {
+      setInitialLoading(false);
       setLoading(false);
     }
   };
@@ -105,10 +109,7 @@ export default function AdminBookingsPage() {
     
     try {
       await apiService.markBookingComplete(bookingId);
-      
-      // Refresh bookings list
       await fetchBookings();
-      
       alert('Booking marked as completed and payments released!');
     } catch (error) {
       console.error('Error marking booking as completed:', error);
@@ -125,13 +126,8 @@ export default function AdminBookingsPage() {
     setProcessingAction(bookingId);
     
     try {
-      // Note: You'll need to add this method to your apiService
-      // await apiService.processRefund(bookingId);
       console.log('Processing refund for booking:', bookingId);
-      
-      // For now, just refresh the bookings list
       await fetchBookings();
-      
       alert('Refund processed successfully!');
     } catch (error) {
       console.error('Error processing refund:', error);
@@ -141,12 +137,9 @@ export default function AdminBookingsPage() {
     }
   };
 
-  // Client-side filtering for better search performance
   const filteredBookings = bookings.filter(booking => {
-    // Tab filter
     if (selectedTab !== 'all' && booking.status !== selectedTab) return false;
     
-    // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const customerName = booking.customerInfo?.fullName?.toLowerCase() || '';
@@ -171,6 +164,7 @@ export default function AdminBookingsPage() {
     { id: 'all', name: 'All Bookings', count: stats.total },
     { id: 'confirmed', name: 'Confirmed', count: stats.confirmed },
     { id: 'completed', name: 'Completed', count: stats.completed },
+    { id: 'draft', name: 'Pending Payment', count: stats.draft },
     { id: 'cancelled', name: 'Cancelled', count: stats.cancelled }
   ];
 
@@ -204,7 +198,7 @@ export default function AdminBookingsPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-500"></div>
@@ -227,100 +221,100 @@ export default function AdminBookingsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6 md:space-y-8 px-4 md:px-0">
+      {/* Header - Mobile Responsive */}
+      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl md:rounded-3xl p-6 md:p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
               Booking Management
             </h1>
-            <p className="text-white/90" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <p className="text-white/90 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
               Manage and monitor all platform bookings
             </p>
           </div>
-          <CalendarDaysIcon className="w-16 h-16 text-white/80" />
+          <CalendarDaysIcon className="w-12 h-12 md:w-16 md:h-16 text-white/80" />
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-3 rounded-xl">
-              <CalendarDaysIcon className="w-6 h-6 text-blue-600" />
+      {/* Stats Cards - Mobile Responsive Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="bg-blue-100 p-2 md:p-3 rounded-lg md:rounded-xl mb-3 md:mb-0 w-fit">
+              <CalendarDaysIcon className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="md:ml-4">
+              <p className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.total}
               </p>
-              <p className="text-sm text-gray-600">Total Bookings</p>
+              <p className="text-xs md:text-sm text-gray-600">Total Bookings</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-green-100 p-3 rounded-xl">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="bg-green-100 p-2 md:p-3 rounded-lg md:rounded-xl mb-3 md:mb-0 w-fit">
+              <CheckCircleIcon className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="md:ml-4">
+              <p className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.confirmed}
               </p>
-              <p className="text-sm text-gray-600">Confirmed</p>
+              <p className="text-xs md:text-sm text-gray-600">Confirmed</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-purple-100 p-3 rounded-xl">
-              <CurrencyDollarIcon className="w-6 h-6 text-purple-600" />
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="bg-purple-100 p-2 md:p-3 rounded-lg md:rounded-xl mb-3 md:mb-0 w-fit">
+              <CurrencyDollarIcon className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="md:ml-4">
+              <p className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                 ${stats.totalRevenue.toLocaleString()}
               </p>
-              <p className="text-sm text-gray-600">Total Revenue</p>
+              <p className="text-xs md:text-sm text-gray-600">Total Revenue</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-amber-100 p-3 rounded-xl">
-              <CurrencyDollarIcon className="w-6 h-6 text-amber-600" />
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="bg-amber-100 p-2 md:p-3 rounded-lg md:rounded-xl mb-3 md:mb-0 w-fit">
+              <CurrencyDollarIcon className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="md:ml-4">
+              <p className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                 ${stats.monthlyRevenue.toLocaleString()}
               </p>
-              <p className="text-sm text-gray-600">This Month</p>
+              <p className="text-xs md:text-sm text-gray-600">This Month</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
+      {/* Filters and Search - Mobile Responsive */}
+      <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg border border-gray-100">
+        <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+            <div className="relative flex-1 sm:flex-initial">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search bookings, customers, tours..."
+                placeholder="Search bookings..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 w-80"
+                className="pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 w-full sm:w-64 md:w-80 text-sm"
                 style={{ fontFamily: 'Poppins, sans-serif' }}
               />
             </div>
             
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              className="flex items-center justify-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-sm"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <FunnelIcon className="w-5 h-5 mr-2" />
@@ -331,11 +325,11 @@ export default function AdminBookingsPage() {
         </div>
 
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <option value="all">All Payment Status</option>
@@ -347,7 +341,7 @@ export default function AdminBookingsPage() {
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <option value="all">All Time</option>
@@ -362,7 +356,7 @@ export default function AdminBookingsPage() {
                 setStatusFilter('all');
                 setDateRange('all');
               }}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm sm:col-span-2 md:col-span-1"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               Clear Filters
@@ -371,15 +365,15 @@ export default function AdminBookingsPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+      {/* Tabs - Mobile Responsive with Horizontal Scroll */}
+      <div className="bg-white rounded-xl md:rounded-2xl shadow-lg border border-gray-100">
+        <div className="border-b border-gray-200 overflow-x-auto">
+          <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 min-w-max">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setSelectedTab(tab.id)}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-3 md:py-4 px-2 border-b-2 font-medium text-xs md:text-sm transition-colors whitespace-nowrap ${
                   selectedTab === tab.id
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -395,139 +389,153 @@ export default function AdminBookingsPage() {
           </nav>
         </div>
 
-        {/* Bookings List */}
-        <div className="divide-y divide-gray-200">
-          {filteredBookings.map((booking) => (
-            <div key={booking._id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(booking.status)}
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
-                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                      </span>
-                    </div>
-                    <span className="font-mono text-sm text-gray-500">{booking.bookingReference}</span>
-                  </div>
-                  
-                  <div className="mt-3 grid grid-cols-1 lg:grid-cols-4 gap-4">
-                    <div>
-                      <h4 className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        {booking.customerInfo?.fullName || 'Unknown Customer'}
-                      </h4>
-                      <p className="text-sm text-gray-600">{booking.customerInfo?.email}</p>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        {booking.tourId?.title || 'Unknown Tour'}
-                      </h4>
-                      <p className="text-sm text-gray-600">Guide: {booking.guideId?.fullName || 'Unassigned'}</p>
-                    </div>
-                    
-                    <div>
-                      <div className="flex items-center text-sm text-gray-600 mb-1">
-                        <CalendarDaysIcon className="w-4 h-4 mr-1" />
-                        {booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString() : 'No date'}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <ClockIcon className="w-4 h-4 mr-1" />
-                        {booking.bookingTime || 'No time'} • {booking.numberOfGuests || 0} guests
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <p className="font-semibold text-lg text-gray-900">
-                        ${booking.pricing?.totalAmount || 0}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {booking.payment?.status === 'completed' ? 'Paid' : booking.payment?.status || 'Unknown'}
-                      </p>
-                      {booking.promoCode && (
-                        <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                          {booking.promoCode.code}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : (
+          <>
+            {/* Bookings List - Mobile Responsive */}
+            <div className="divide-y divide-gray-200">
+              {filteredBookings.map((booking) => (
+                <div key={booking._id} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col space-y-4">
+                    {/* Status and Reference */}
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(booking.status)}
+                        <span className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${getStatusColor(booking.status)}`}>
+                          {booking.status === 'draft' ? 'Pending Payment' : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                         </span>
+                      </div>
+                      <span className="font-mono text-xs md:text-sm text-gray-500">{booking.bookingReference}</span>
+                    </div>
+                    
+                    {/* Booking Details Grid - Mobile Stacked */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                      {/* Customer Info */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <h4 className="font-semibold text-sm md:text-base text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {booking.customerInfo?.fullName || 'Unknown Customer'}
+                        </h4>
+                        <p className="text-xs md:text-sm text-gray-600 truncate">{booking.customerInfo?.email}</p>
+                      </div>
+                      
+                      {/* Tour Info */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <h4 className="font-semibold text-sm md:text-base text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {booking.tourId?.title || 'Unknown Tour'}
+                        </h4>
+                        <p className="text-xs md:text-sm text-gray-600 truncate">Guide: {booking.guideId?.fullName || 'Unassigned'}</p>
+                      </div>
+                      
+                      {/* Date & Time */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center text-xs md:text-sm text-gray-600 mb-1">
+                          <CalendarDaysIcon className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <span className="truncate">{booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString() : 'No date'}</span>
+                        </div>
+                        <div className="flex items-center text-xs md:text-sm text-gray-600">
+                          <ClockIcon className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <span className="truncate">{booking.bookingTime || 'No time'} • {booking.numberOfGuests || 0} guests</span>
+                        </div>
+                      </div>
+                      
+                      {/* Price */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="font-semibold text-base md:text-lg text-gray-900">
+                          ${booking.pricing?.totalAmount || 0}
+                        </p>
+                        <p className="text-xs md:text-sm text-gray-600">
+                          {booking.payment?.status === 'completed' ? 'Paid' : booking.payment?.status || 'Unknown'}
+                        </p>
+                        {booking.promoCode && (
+                          <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                            {booking.promoCode.code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions - Mobile Stacked */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <button
+                        onClick={() => setSelectedBooking(booking)}
+                        className="flex items-center justify-center px-4 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200 text-sm"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        <EyeIcon className="w-4 h-4 mr-2" />
+                        View Details
+                      </button>
+                      
+                      {booking.status === 'confirmed' && !booking.experience?.completed && (
+                        <button
+                          onClick={() => handleMarkCompleted(booking._id)}
+                          disabled={processingAction === booking._id}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        >
+                          {processingAction === booking._id ? 'Processing...' : 'Mark Complete'}
+                        </button>
+                      )}
+                      
+                      {booking.status === 'confirmed' && booking.payment?.status === 'completed' && (
+                        <button
+                          onClick={() => handleRefund(booking._id)}
+                          disabled={processingAction === booking._id}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        >
+                          {processingAction === booking._id ? 'Processing...' : 'Process Refund'}
+                        </button>
                       )}
                     </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2 ml-6">
-                  <button
-                    onClick={() => setSelectedBooking(booking)}
-                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                    title="View Details"
-                  >
-                    <EyeIcon className="w-5 h-5" />
-                  </button>
-                  
-                  {booking.status === 'confirmed' && !booking.experience?.completed && (
-                    <button
-                      onClick={() => handleMarkCompleted(booking._id)}
-                      disabled={processingAction === booking._id}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                      style={{ fontFamily: 'Poppins, sans-serif' }}
-                    >
-                      {processingAction === booking._id ? 'Processing...' : 'Mark Complete'}
-                    </button>
-                  )}
-                  
-                  {booking.status === 'confirmed' && booking.payment?.status === 'completed' && (
-                    <button
-                      onClick={() => handleRefund(booking._id)}
-                      disabled={processingAction === booking._id}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                      style={{ fontFamily: 'Poppins, sans-serif' }}
-                    >
-                      {processingAction === booking._id ? 'Processing...' : 'Process Refund'}
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {/* Commission Breakdown */}
-              {(booking.commissions?.guideCommission > 0 || booking.commissions?.influencerCommission > 0) && (
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-2 font-medium">Commission Breakdown:</p>
-                  <div className="flex space-x-6 text-sm">
-                    <span>Guide: ${booking.commissions.guideCommission || 0}</span>
-                    <span>Admin: ${booking.commissions.adminCommission || 0}</span>
-                    {booking.commissions.influencerCommission > 0 && (
-                      <span>Influencer: ${booking.commissions.influencerCommission}</span>
+                    {/* Commission Breakdown */}
+                    {(booking.commissions?.guideCommission > 0 || booking.commissions?.influencerCommission > 0) && (
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs md:text-sm text-gray-600 mb-2 font-medium">Commission Breakdown:</p>
+                        <div className="flex flex-wrap gap-3 md:gap-6 text-xs md:text-sm">
+                          <span>Guide: ${booking.commissions.guideCommission || 0}</span>
+                          <span>Admin: ${booking.commissions.adminCommission || 0}</span>
+                          {booking.commissions.influencerCommission > 0 && (
+                            <span>Influencer: ${booking.commissions.influencerCommission}</span>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
 
-        {filteredBookings.length === 0 && !loading && (
-          <div className="p-12 text-center">
-            <CalendarDaysIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              {searchTerm ? 'No bookings found matching your search criteria' : 'No bookings found matching your criteria'}
-            </p>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="mt-2 text-indigo-600 hover:text-indigo-700 text-sm underline"
-              >
-                Clear search
-              </button>
+            {filteredBookings.length === 0 && (
+              <div className="p-8 md:p-12 text-center">
+                <CalendarDaysIcon className="w-10 h-10 md:w-12 md:h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  {searchTerm ? 'No bookings found matching your search criteria' : 'No bookings found matching your criteria'}
+                </p>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="mt-2 text-indigo-600 hover:text-indigo-700 text-sm underline"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
-      {/* Booking Detail Modal */}
+      {/* Booking Detail Modal - Mobile Responsive */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 md:p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Booking Details
                 </h2>
                 <button
@@ -539,18 +547,18 @@ export default function AdminBookingsPage() {
               </div>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               {/* Booking Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     Booking Information
                   </h3>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-xs md:text-sm">
                     <p><span className="text-gray-600">Reference:</span> {selectedBooking.bookingReference}</p>
                     <p><span className="text-gray-600">Status:</span> 
                       <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getStatusColor(selectedBooking.status)}`}>
-                        {selectedBooking.status}
+                        {selectedBooking.status === 'draft' ? 'Pending Payment' : selectedBooking.status}
                       </span>
                     </p>
                     <p><span className="text-gray-600">Date:</span> {selectedBooking.bookingDate ? new Date(selectedBooking.bookingDate).toLocaleDateString() : 'No date'}</p>
@@ -560,34 +568,34 @@ export default function AdminBookingsPage() {
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     Customer Information
                   </h3>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-xs md:text-sm">
                     <p><span className="text-gray-600">Name:</span> {selectedBooking.customerInfo?.fullName || 'Unknown'}</p>
-                    <p><span className="text-gray-600">Email:</span> {selectedBooking.customerInfo?.email || 'No email'}</p>
+                    <p className="break-all"><span className="text-gray-600">Email:</span> {selectedBooking.customerInfo?.email || 'No email'}</p>
                     <p><span className="text-gray-600">Phone:</span> {selectedBooking.customerInfo?.phone || 'No phone'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Tour & Guide Info */}
-              <div className="border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <div className="border-t pt-4 md:pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Tour & Guide Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Tour Details</h4>
-                    <div className="space-y-1 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Tour Details</h4>
+                    <div className="space-y-1 text-xs md:text-sm">
                       <p>Title: {selectedBooking.tourId?.title || 'Unknown Tour'}</p>
                       <p>Category: {selectedBooking.tourId?.category || 'No category'}</p>
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Guide Information</h4>
-                    <div className="space-y-1 text-sm">
+                  <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Guide Information</h4>
+                    <div className="space-y-1 text-xs md:text-sm">
                       <p>Name: {selectedBooking.guideId?.fullName || 'Unassigned'}</p>
                       <p>City: {selectedBooking.guideId?.city || 'Unknown'}</p>
                     </div>
@@ -596,26 +604,26 @@ export default function AdminBookingsPage() {
               </div>
 
               {/* Payment & Commission Details */}
-              <div className="border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <div className="border-t pt-4 md:pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4 text-sm md:text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Payment & Commission Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Payment Information</h4>
-                    <div className="space-y-1 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Payment Information</h4>
+                    <div className="space-y-1 text-xs md:text-sm">
                       <p>Amount: ${selectedBooking.pricing?.totalAmount || 0}</p>
                       <p>Status: {selectedBooking.payment?.status || 'Unknown'}</p>
                       <p>Method: {selectedBooking.payment?.method || 'Unknown'}</p>
                       {selectedBooking.payment?.stripePaymentIntentId && (
-                        <p>Stripe ID: {selectedBooking.payment.stripePaymentIntentId}</p>
+                        <p className="break-all">Stripe ID: {selectedBooking.payment.stripePaymentIntentId}</p>
                       )}
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Commission Breakdown</h4>
-                    <div className="space-y-1 text-sm">
+                  <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Commission Breakdown</h4>
+                    <div className="space-y-1 text-xs md:text-sm">
                       <p>Guide: ${selectedBooking.commissions?.guideCommission || 0}</p>
                       <p>Admin: ${selectedBooking.commissions?.adminCommission || 0}</p>
                       {selectedBooking.commissions?.influencerCommission > 0 && (
@@ -627,8 +635,8 @@ export default function AdminBookingsPage() {
               </div>
 
               {/* Actions */}
-              <div className="border-t pt-6">
-                <div className="flex space-x-4">
+              <div className="border-t pt-4 md:pt-6">
+                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   {selectedBooking.status === 'confirmed' && !selectedBooking.experience?.completed && (
                     <button
                       onClick={() => {
@@ -636,7 +644,7 @@ export default function AdminBookingsPage() {
                         setSelectedBooking(null);
                       }}
                       disabled={processingAction === selectedBooking._id}
-                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                      className="px-4 md:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm md:text-base"
                       style={{ fontFamily: 'Poppins, sans-serif' }}
                     >
                       {processingAction === selectedBooking._id ? 'Processing...' : 'Mark as Completed'}
@@ -650,7 +658,7 @@ export default function AdminBookingsPage() {
                         setSelectedBooking(null);
                       }}
                       disabled={processingAction === selectedBooking._id}
-                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                      className="px-4 md:px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm md:text-base"
                       style={{ fontFamily: 'Poppins, sans-serif' }}
                     >
                       {processingAction === selectedBooking._id ? 'Processing...' : 'Process Refund'}

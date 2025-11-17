@@ -167,13 +167,18 @@ export default function DashboardPage() {
       });
 
       bookingsData.slice(0, 2).forEach(booking => {
+        // Determine title based on booking status
+        const bookingTitle = booking.status === 'draft' 
+          ? 'Booking pending payment' 
+          : 'New booking confirmed';
+        
         recentActivity.push({
           type: 'booking',
-          title: 'New booking confirmed',
+          title: bookingTitle,
           description: `${booking.tourId?.title || 'Unknown tour'} - $${booking.pricing?.totalAmount || 0}`,
           time: booking.createdAt,
           icon: CalendarDaysIcon,
-          color: 'blue'
+          color: booking.status === 'draft' ? 'amber' : 'blue' // Optional: different color for pending
         });
       });
 
