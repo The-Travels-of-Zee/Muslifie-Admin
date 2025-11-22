@@ -1304,8 +1304,7 @@ const ToursManagement = () => {
               <option value="Historical Tours">Historical Tours</option>
               <option value="Walking Tours">Walking Tours</option>
               <option value="City Tours">City Tours</option>
-              </select>
-            </div>
+            </select>
           </div>
 
           <button className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
