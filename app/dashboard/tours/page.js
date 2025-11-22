@@ -203,45 +203,58 @@ const ToursManagement = () => {
 
   const handleAction = async (tourId, action, data = {}) => {
     setProcessingAction(tourId);
-    
+
     try {
+      // Update tour status on backend
       await apiService.updateTourStatus(tourId, action, data.reviewNotes);
-      
-      setTours(prevTours => 
-        prevTours.map(tour => 
-          tour._id === tourId 
-            ? { ...tour, status: action, adminReview: { reviewNotes: data.reviewNotes } }
-            : tour
-        )
+
+      // AGGRESSIVE CACHE INVALIDATION - Clear all tour-related caches
+      apiService.invalidateCache('/admin/tours');
+      apiService.invalidateCache('/admin/verifications');
+      apiService.invalidateCache('/admin/analytics');
+
+      // Update local state immediately
+      setTours(prevTours =>
+        prevTours.filter(tour => tour._id !== tourId) // Remove from pending list if approved/rejected
       );
-      
+
+      // Update stats
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const tour = tours.find(t => t._id === tourId);
-        
+
         if (tour) {
           if (tour.status === 'pending_review') newStats.pending = Math.max(0, newStats.pending - 1);
           else if (tour.status === 'active') newStats.active = Math.max(0, newStats.active - 1);
           else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
-          
+
           if (action === 'pending_review') newStats.pending++;
           else if (action === 'active') newStats.active++;
           else if (action === 'rejected') newStats.rejected++;
         }
-        
+
         return newStats;
       });
-      
+
       setSelectedTour(null);
       alert(`Tour status changed to ${action} successfully!`);
-      
-      setTimeout(() => {
-        apiService.getTours({}, { forceRefresh: true }).catch(console.error);
-      }, 1000);
-      
+
+      // IMMEDIATE FORCE REFRESH - Don't wait, refresh immediately
+      fetchTours(false);
+
+      // Also trigger a window event to notify the layout to refresh badge counts
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tourStatusChanged', {
+          detail: { tourId, oldStatus: tours.find(t => t._id === tourId)?.status, newStatus: action }
+        }));
+      }
+
     } catch (error) {
       console.error(`Error updating tour status:`, error);
       alert(`Failed to update tour status. Please try again.`);
+
+      // On error, force refresh to get correct state from server
+      fetchTours(true);
     } finally {
       setProcessingAction(null);
     }
@@ -342,61 +355,61 @@ const ToursManagement = () => {
     const normalizedType = normalizeTourType(tour.tourType);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-3xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-gray-200">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl max-w-7xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white p-4 sm:p-6 border-b border-gray-200 z-10">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Management
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-2xl"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-xl sm:text-2xl flex-shrink-0"
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Tour Header with Tour Type */}
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-4 sm:space-y-0">
+                <div className="flex-1 min-w-0 w-full">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words" style={{ fontFamily: 'Jost, sans-serif' }}>
                     {tour.title}
                   </h3>
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(tour.status)}`}>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getStatusColor(tour.status)}`}>
                       {getStatusIcon(tour.status)}
                       <span className="ml-1 capitalize">{tour.status.replace('_', ' ')}</span>
                     </span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${tourTypeDisplay.color}`}>
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${tourTypeDisplay.color}`}>
                       {tourTypeDisplay.icon}
                       <span className="ml-1">{tourTypeDisplay.label}</span>
                     </span>
                     {tour.category && (
-                      <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                      <span className="bg-purple-100 text-purple-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                         {tour.category}
                       </span>
                     )}
-                    <div className="flex items-center bg-white px-3 py-1 rounded-full">
+                    <div className="flex items-center bg-white px-2 sm:px-3 py-1 rounded-full">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      <span className="text-sm font-medium">{tour.completionPercentage || 0}% Complete</span>
+                      <span className="text-xs sm:text-sm font-medium">{tour.completionPercentage || 0}% Complete</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
+                <div className="text-left sm:text-right flex-shrink-0">
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
                     ${tour.pricePerPerson}
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {normalizedType === 'package' ? 'per package' : 'per person'}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="flex items-center text-gray-600">
                   <ClockIcon className="w-4 h-4 mr-2" />
                   {getDurationDisplay(tour)}
@@ -426,21 +439,21 @@ const ToursManagement = () => {
             </div>
 
             {/* Guide Information */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Tour Guide
               </h4>
               <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-4">
-                  <span className="text-white font-bold">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
+                  <span className="text-white font-bold text-sm sm:text-base">
                     {tour.guideId?.fullName?.split(' ').map(n => n[0]).join('') || 'G'}
                   </span>
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 text-sm sm:text-base truncate" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     {tour.guideId?.fullName || 'Guide Name'}
                   </p>
-                  <p className="text-sm text-gray-600">{tour.guideId?.email}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 truncate">{tour.guideId?.email}</p>
                   <div className="flex items-center mt-1">
                     <MapPinIcon className="w-4 h-4 text-gray-500 mr-1" />
                     <span className="text-sm text-gray-600">{tour.guideId?.city}</span>
@@ -457,11 +470,11 @@ const ToursManagement = () => {
 
             {/* Location Information */}
             {tour.location && (tour.location.country || tour.location.city) && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Location Details
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {tour.location.country && (
                     <div className="flex items-center">
                       <GlobeAltIcon className="w-5 h-5 text-gray-500 mr-2" />
@@ -494,11 +507,11 @@ const ToursManagement = () => {
             )}
 
             {/* Tour Description */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Description
               </h4>
-              <p className="text-gray-700 leading-relaxed" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <p className="text-sm sm:text-base text-gray-700 leading-relaxed" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 {tour.description}
               </p>
             </div>
@@ -557,12 +570,12 @@ const ToursManagement = () => {
 
             {/* Package Details Section (Only for Package Tours) */}
             {normalizedType === 'package' && tour.packageDetails && (
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Package Details
                 </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {/* Duration & Accommodation */}
                   <div className="space-y-4">
                     <div className="bg-white rounded-xl p-4 border border-purple-200">
@@ -894,8 +907,8 @@ const ToursManagement = () => {
             )}
 
             {/* Status Management Section */}
-            <div className="bg-gray-50 rounded-2xl p-6">
-              <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Status Management
               </h4>
               
@@ -921,13 +934,13 @@ const ToursManagement = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Change Status To
                   </label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full p-2.5 sm:p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
                     {allStatuses.map((status) => (
@@ -937,20 +950,20 @@ const ToursManagement = () => {
                     ))}
                   </select>
                   {selectedStatus && selectedStatus !== tour.status && (
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-xs sm:text-sm text-gray-600">
                       {allStatuses.find(s => s.value === selectedStatus)?.description}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Admin Notes (Optional)
                   </label>
                   <textarea
                     value={actionNotes}
                     onChange={(e) => setActionNotes(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full p-2.5 sm:p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base"
                     rows="3"
                     placeholder="Add any general notes about this tour or status change..."
                     style={{ fontFamily: 'Poppins, sans-serif' }}
@@ -959,13 +972,13 @@ const ToursManagement = () => {
 
                 {(['rejected', 'paused', 'archived'].includes(selectedStatus) && selectedStatus !== tour.status) && (
                   <div>
-                    <label className="block text-sm font-medium text-red-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-medium text-red-700 mb-2">
                       Reason for {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} (Required)
                     </label>
                     <textarea
                       value={statusReason}
                       onChange={(e) => setStatusReason(e.target.value)}
-                      className="w-full p-3 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full p-2.5 sm:p-3 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                       rows="3"
                       placeholder={`Explain why this tour is being ${selectedStatus}...`}
                       style={{ fontFamily: 'Poppins, sans-serif' }}
@@ -978,8 +991,8 @@ const ToursManagement = () => {
                   <button
                     onClick={handleStatusChange}
                     disabled={processingAction === tour._id}
-                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 ${
-                      selectedStatus === 'active' 
+                    className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base ${
+                      selectedStatus === 'active'
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : selectedStatus === 'rejected'
                         ? 'bg-red-600 hover:bg-red-700 text-white'
@@ -997,7 +1010,7 @@ const ToursManagement = () => {
 
                 {selectedStatus === tour.status && (
                   <div className="text-center py-3">
-                    <p className="text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    <p className="text-xs sm:text-sm text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
                       Select a different status to make changes
                     </p>
                   </div>
@@ -1015,22 +1028,22 @@ const ToursManagement = () => {
             </div>
 
             {/* DELETE TOUR SECTION - DANGER ZONE */}
-            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex items-start">
-                <ExclamationTriangleIcon className="w-6 h-6 text-red-600 mr-3 mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                  <h4 className="text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                <ExclamationTriangleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 mr-2 sm:mr-3 mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base sm:text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                     Danger Zone
                   </h4>
-                  <p className="text-sm text-red-700 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  <p className="text-xs sm:text-sm text-red-700 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     Permanently delete this tour from the system. This action cannot be undone and will remove all associated data including bookings history, reviews, and analytics.
                   </p>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+                    className="flex items-center px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
-                    <TrashIcon className="w-5 h-5 mr-2" />
+                    <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Delete Tour Permanently
                   </button>
                 </div>
@@ -1041,34 +1054,34 @@ const ToursManagement = () => {
 
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-10">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-              <div className="text-center mb-6">
-                <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                  <TrashIcon className="w-8 h-8 text-red-600" />
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-10">
+            <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6">
+              <div className="text-center mb-4 sm:mb-6">
+                <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-red-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                  <TrashIcon className="w-6 h-6 sm:w-8 sm:h-8 text-red-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Delete Tour Permanently?
                 </h3>
-                <p className="text-gray-600 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   You are about to permanently delete:
                 </p>
-                <p className="font-semibold text-gray-900 mb-2">"{tour.title}"</p>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-red-800">
+                <p className="font-semibold text-sm sm:text-base text-gray-900 mb-2 break-words">"{tour.title}"</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
+                  <p className="text-xs sm:text-sm text-red-800">
                     <strong>Warning:</strong> This will delete all tour data, bookings, and cannot be recovered.
                   </p>
                 </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <div className="mb-4 sm:mb-6">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Deletion Reason (Required) <span className="text-red-600">*</span>
                 </label>
                 <textarea
                   value={deleteReason}
                   onChange={(e) => setDeleteReason(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full p-2.5 sm:p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                   rows="4"
                   placeholder="Explain why this tour is being permanently deleted. This reason will be sent to the tour guide."
                   style={{ fontFamily: 'Poppins, sans-serif' }}
@@ -1080,13 +1093,13 @@ const ToursManagement = () => {
                 )}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     setDeleteReason('');
                   }}
-                  className="flex-1 py-3 px-6 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-xl font-semibold transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-xl font-semibold transition-colors text-sm sm:text-base"
                   style={{ fontFamily: 'Poppins, sans-serif' }}
                 >
                   Cancel
@@ -1094,7 +1107,7 @@ const ToursManagement = () => {
                 <button
                   onClick={handleConfirmDelete}
                   disabled={processingAction === tour._id || !deleteReason.trim()}
-                  className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   style={{ fontFamily: 'Poppins, sans-serif' }}
                 >
                   {processingAction === tour._id ? 'Deleting...' : 'Yes, Delete Tour'}

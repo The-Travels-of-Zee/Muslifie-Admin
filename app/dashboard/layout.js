@@ -55,20 +55,36 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     fetchBadgeCounts();
     fetchCurrentUser();
-    
+
     // Refresh badges every 30 seconds
     const interval = setInterval(fetchBadgeCounts, 30000);
-    return () => clearInterval(interval);
+
+    // Listen for tour status change events and refresh immediately
+    const handleTourStatusChange = () => {
+      console.log('Tour status changed - refreshing badge counts immediately');
+      fetchBadgeCounts();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('tourStatusChanged', handleTourStatusChange);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('tourStatusChanged', handleTourStatusChange);
+      }
+    };
   }, []);
 
   const fetchBadgeCounts = async () => {
     try {
-      // Try to fetch pending counts, but don't block if APIs fail
+      // FORCE REFRESH - Bypass cache to get real-time badge counts
       const promises = [
-        apiService.getVerifications({ status: 'pending', limit: 1 }).catch(() => null),
-        apiService.getEarnings({ status: 'pending', limit: 1 }).catch(() => null),
-        apiService.getTours({ status: 'pending_review', limit: 1 }).catch(() => null),
-        apiService.getUsers({ verificationStatus: 'pending', limit: 1 }).catch(() => null)
+        apiService.getVerifications({ status: 'pending', limit: 1 }, { forceRefresh: true }).catch(() => null),
+        apiService.getEarnings({ status: 'pending', limit: 1 }, { forceRefresh: true }).catch(() => null),
+        apiService.getTours({ status: 'pending_review', limit: 1 }, { forceRefresh: true }).catch(() => null),
+        apiService.getUsers({ verificationStatus: 'pending', limit: 1 }, { forceRefresh: true }).catch(() => null)
       ];
 
       const [verificationsRes, earningsRes, toursRes, usersRes] = await Promise.all(promises);
