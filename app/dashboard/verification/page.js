@@ -515,38 +515,38 @@ const VerificationManagement = () => {
     const requiredDocs = getRequiredDocuments();
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl md:rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
           {/* Modal Header - Sticky */}
-          <div className="sticky top-0 bg-white p-4 md:p-6 border-b border-gray-200 z-10">
+          <div className="sticky top-0 bg-white p-3 sm:p-4 md:p-6 border-b border-gray-200 z-10">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Verification Review
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-2xl flex-shrink-0"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-xl sm:text-2xl flex-shrink-0"
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+          <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
             {/* Verification Header - Mobile Responsive */}
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl md:rounded-2xl p-4 md:p-6">
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between space-y-4 md:space-y-0 mb-4">
                 <div className="flex items-start">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
-                    <span className="text-white font-bold text-base md:text-xl">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-2 sm:mr-3 md:mr-4 flex-shrink-0">
+                    <span className="text-white font-bold text-sm sm:text-base md:text-xl">
                       {verification.userId?.fullName?.split(' ').map(n => n[0]).join('') || 'U'}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg md:text-2xl font-bold text-gray-900 mb-1 break-words" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    <h3 className="text-base sm:text-lg md:text-2xl font-bold text-gray-900 mb-1 break-words" style={{ fontFamily: 'Jost, sans-serif' }}>
                       {verification.userId?.fullName || 'Unknown User'}
                     </h3>
-                    <p className="text-gray-600 mb-2 text-sm md:text-base break-words">{verification.businessName}</p>
+                    <p className="text-gray-600 mb-2 text-xs sm:text-sm md:text-base break-words">{verification.businessName}</p>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-xs md:text-sm text-gray-600">
                       <div className="flex items-center min-w-0">
                         <EnvelopeIcon className="w-4 h-4 mr-1 flex-shrink-0" />
@@ -560,41 +560,41 @@ const VerificationManagement = () => {
                   </div>
                 </div>
                 <div className="text-left md:text-right flex-shrink-0">
-                  <span className={`inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium border ${getStatusColor(verification.verificationStatus)}`}>
+                  <span className={`inline-flex items-center px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-full text-xs sm:text-sm font-medium border ${getStatusColor(verification.verificationStatus)}`}>
                     {getStatusIcon(verification.verificationStatus)}
-                    <span className="ml-2 capitalize">{verification.verificationStatus}</span>
+                    <span className="ml-1 sm:ml-2 capitalize">{verification.verificationStatus}</span>
                   </span>
-                  <p className="text-xs md:text-sm text-gray-600 mt-2">
+                  <p className="text-xs sm:text-sm text-gray-600 mt-2">
                     Submitted: {formatDate(verification.submittedAt)}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
                 {verification.guideType && (
-                  <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl">
-                    <p className="text-xs md:text-sm text-gray-600">Guide Type</p>
+                  <div className="bg-white p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl">
+                    <p className="text-xs sm:text-sm text-gray-600">Guide Type</p>
                     <div className="flex items-center mt-1">
                       {getGuideTypeIcon(verification.guideType)}
-                      <p className="font-semibold text-gray-900 ml-1 text-xs md:text-sm">{getGuideTypeLabel(verification.guideType)}</p>
+                      <p className="font-semibold text-gray-900 ml-1 text-xs sm:text-sm truncate">{getGuideTypeLabel(verification.guideType)}</p>
                     </div>
                   </div>
                 )}
-                <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl">
-                  <p className="text-xs md:text-sm text-gray-600">Service Type</p>
-                  <p className="font-semibold text-gray-900 text-xs md:text-sm">{getServiceTypeLabel(verification.serviceType)}</p>
+                <div className="bg-white p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl">
+                  <p className="text-xs sm:text-sm text-gray-600">Service Type</p>
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{getServiceTypeLabel(verification.serviceType)}</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl">
-                  <p className="text-xs md:text-sm text-gray-600">City</p>
-                  <p className="font-semibold text-gray-900 text-xs md:text-sm">{verification.city}</p>
+                <div className="bg-white p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl">
+                  <p className="text-xs sm:text-sm text-gray-600">City</p>
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{verification.city}</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl">
-                  <p className="text-xs md:text-sm text-gray-600">Experience</p>
-                  <p className="font-semibold text-gray-900 text-xs md:text-sm">{verification.yearsOfExperience} years</p>
+                <div className="bg-white p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl">
+                  <p className="text-xs sm:text-sm text-gray-600">Experience</p>
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">{verification.yearsOfExperience} years</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl">
-                  <p className="text-xs md:text-sm text-gray-600">Test Score</p>
-                  <p className={`font-semibold text-xs md:text-sm ${verification.testResults?.passed ? 'text-green-600' : 'text-red-600'}`}>
+                <div className="bg-white p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl">
+                  <p className="text-xs sm:text-sm text-gray-600">Test Score</p>
+                  <p className={`font-semibold text-xs sm:text-sm ${verification.testResults?.passed ? 'text-green-600' : 'text-red-600'}`}>
                     {verification.testResults?.percentage || 0}%
                   </p>
                 </div>
@@ -802,13 +802,13 @@ const VerificationManagement = () => {
                 </h4>
                 
                 <div className="mb-6">
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Review Notes
                   </label>
                   <textarea
                     value={actionNotes}
                     onChange={(e) => setActionNotes(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm md:text-base"
+                    className="w-full p-2.5 sm:p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base"
                     rows="3"
                     placeholder="Add notes about the verification review..."
                     style={{ fontFamily: 'Poppins, sans-serif' }}
@@ -819,7 +819,7 @@ const VerificationManagement = () => {
                   <button
                     onClick={() => handleAction(verification._id, 'approve', { reviewNotes: actionNotes })}
                     disabled={processingAction === verification._id}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm md:text-base"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
                     {processingAction === verification._id ? 'Processing...' : 'Approve Verification'}
@@ -827,19 +827,19 @@ const VerificationManagement = () => {
                 </div>
 
                 <div className="border-t border-gray-200 pt-6">
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Rejection Reason
                   </label>
                   <textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4 text-sm md:text-base"
+                    className="w-full p-2.5 sm:p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4 text-sm sm:text-base"
                     rows="2"
                     placeholder="Explain why this verification is being rejected..."
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   />
 
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Required Changes
                   </label>
                   {requiredChanges.map((change, index) => (
@@ -848,7 +848,7 @@ const VerificationManagement = () => {
                         type="text"
                         value={change}
                         onChange={(e) => updateRequiredChange(index, e.target.value)}
-                        className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm md:text-base"
+                        className="flex-1 p-2 sm:p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                         placeholder="Required change..."
                         style={{ fontFamily: 'Poppins, sans-serif' }}
                       />
@@ -862,18 +862,18 @@ const VerificationManagement = () => {
                   ))}
                   <button
                     onClick={addRequiredChange}
-                    className="text-xs md:text-sm text-indigo-600 hover:text-indigo-800 mb-4"
+                    className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-800 mb-4"
                   >
                     + Add Required Change
                   </button>
 
                   <button
-                    onClick={() => handleAction(verification._id, 'reject', { 
-                      rejectionReason, 
-                      requiredChanges: requiredChanges.filter(c => c.trim()) 
+                    onClick={() => handleAction(verification._id, 'reject', {
+                      rejectionReason,
+                      requiredChanges: requiredChanges.filter(c => c.trim())
                     })}
                     disabled={processingAction === verification._id || !rejectionReason.trim()}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm md:text-base"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
                     {processingAction === verification._id ? 'Processing...' : 'Reject Verification'}

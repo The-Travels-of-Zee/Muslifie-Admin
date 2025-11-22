@@ -355,23 +355,23 @@ const UsersManagement = () => {
     const [editMode, setEditMode] = useState(false);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-gray-200">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white p-4 sm:p-6 border-b border-gray-200 z-10">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 User Details
               </h2>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
                 <button
                   onClick={() => setEditMode(!editMode)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <PencilIcon className="w-5 h-5 text-gray-600" />
+                  <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                 </button>
                 <button
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors text-2xl"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors text-xl sm:text-2xl"
                 >
                   ×
                 </button>
@@ -379,52 +379,52 @@ const UsersManagement = () => {
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
-                <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                   {user.profileImage ? (
-                    <img src={user.profileImage} alt={user.fullName} className="w-20 h-20 rounded-full object-cover" />
+                    <img src={user.profileImage} alt={user.fullName} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover" />
                   ) : (
-                    <span className="text-white font-bold text-2xl">
+                    <span className="text-white font-bold text-xl sm:text-2xl">
                       {user.fullName?.split(' ').map(n => n[0]).join('') || 'U'}
                     </span>
                   )}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 w-full">
                   <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 break-words" style={{ fontFamily: 'Jost, sans-serif' }}>
                       {user.fullName || 'Unknown User'}
                     </h3>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getUserTypeColor(user.userType)}`}>
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getUserTypeColor(user.userType)}`}>
                       {user.userType}
                     </span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getVerificationStatusColor(user.verificationStatus)}`}>
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getVerificationStatusColor(user.verificationStatus)}`}>
                       {(user.verificationStatus || 'unknown').replace('_', ' ')}
                     </span>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <EnvelopeIcon className="w-4 h-4 mr-2" />
-                      {user.email}
-                      {user.emailVerified && <CheckBadgeIcon className="w-4 h-4 ml-1 text-green-500" />}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+                    <div className="flex items-center text-gray-600 min-w-0">
+                      <EnvelopeIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{user.email}</span>
+                      {user.emailVerified && <CheckBadgeIcon className="w-4 h-4 ml-1 text-green-500 flex-shrink-0" />}
                     </div>
                     {user.phone && (
                       <div className="flex items-center text-gray-600">
-                        <PhoneIcon className="w-4 h-4 mr-2" />
-                        {user.phone}
+                        <PhoneIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span>{user.phone}</span>
                       </div>
                     )}
                     {user.city && (
                       <div className="flex items-center text-gray-600">
-                        <MapPinIcon className="w-4 h-4 mr-2" />
-                        {user.city}
+                        <MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span>{user.city}</span>
                       </div>
                     )}
                     <div className="flex items-center text-gray-600">
-                      <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                      Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                      <CalendarDaysIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span>Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</span>
                     </div>
                   </div>
                 </div>
@@ -432,53 +432,53 @@ const UsersManagement = () => {
             </div>
 
             {user.userType === 'guide' && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Guide Statistics
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-2">
-                      <StarIcon className="w-6 h-6 text-yellow-500 mr-1" />
-                      <span className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+                      <StarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500 mr-1" />
+                      <span className="text-xl sm:text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
                         {user.rating || 0}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">Rating ({user.totalReviews || 0} reviews)</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Rating ({user.totalReviews || 0} reviews)</p>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                       {user.completedTours || 0}
                     </div>
-                    <p className="text-sm text-gray-600">Completed Tours</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Completed Tours</p>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                       {user.languages?.length || 0}
                     </div>
-                    <p className="text-sm text-gray-600">Languages</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Languages</p>
                   </div>
                 </div>
-                
+
                 {user.serviceType && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">Service Type</p>
-                    <p className="font-semibold text-gray-900">{getServiceTypeLabel(user.serviceType)}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Service Type</p>
+                    <p className="text-sm sm:text-base font-semibold text-gray-900">{getServiceTypeLabel(user.serviceType)}</p>
                   </div>
                 )}
               </div>
             )}
 
             {user.userType === 'influencer' && user.profileUrl && (
-              <div className="bg-pink-50 border border-pink-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-pink-50 border border-pink-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Social Media Profile
                 </h4>
-                <a 
-                  href={user.profileUrl} 
-                  target="_blank" 
+                <a
+                  href={user.profileUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="text-pink-600 hover:text-pink-800 underline"
+                  className="text-pink-600 hover:text-pink-800 underline text-sm sm:text-base break-all"
                 >
                   {user.profileUrl}
                 </a>
@@ -486,24 +486,24 @@ const UsersManagement = () => {
             )}
 
             {user.bio && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Bio
                 </h4>
-                <p className="text-gray-700" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-sm sm:text-base text-gray-700" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   {user.bio}
                 </p>
               </div>
             )}
 
             {user.languages && user.languages.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-3" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Languages
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {user.languages.map((language, index) => (
-                    <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    <span key={index} className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
                       {language}
                     </span>
                   ))}
@@ -511,11 +511,11 @@ const UsersManagement = () => {
               </div>
             )}
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Account Status
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
                 <div>
                   <p className="text-gray-600">Email Verified</p>
                   <div className="flex items-center mt-1">
@@ -552,27 +552,27 @@ const UsersManagement = () => {
             </div>
 
             {user.verificationStatus === 'pending' && (
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Verification Actions
                 </h4>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => handleVerificationAction(user._id, 'approve')}
                     disabled={processingAction === user._id}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
-                    <CheckBadgeIcon className="w-5 h-5 inline mr-2" />
+                    <CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
                     {processingAction === user._id ? 'Processing...' : 'Approve Verification'}
                   </button>
                   <button
                     onClick={() => handleVerificationAction(user._id, 'reject')}
                     disabled={processingAction === user._id}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base"
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
-                    <XCircleIcon className="w-5 h-5 inline mr-2" />
+                    <XCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
                     {processingAction === user._id ? 'Processing...' : 'Reject Verification'}
                   </button>
                 </div>
@@ -580,11 +580,11 @@ const UsersManagement = () => {
             )}
 
             {user.userType !== 'admin' && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
+              <div className="bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-red-900 mb-2" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Danger Zone
                 </h4>
-                <p className="text-sm text-red-700 mb-4">
+                <p className="text-xs sm:text-sm text-red-700 mb-4">
                   Permanently delete this user account and all associated data. This action cannot be undone.
                 </p>
                 <button
@@ -593,10 +593,10 @@ const UsersManagement = () => {
                     setShowDeleteModal(true);
                   }}
                   disabled={processingAction === user._id}
-                  className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center"
+                  className="bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center text-sm sm:text-base"
                   style={{ fontFamily: 'Poppins, sans-serif' }}
                 >
-                  <TrashIcon className="w-5 h-5 mr-2" />
+                  <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Delete User Account
                 </button>
               </div>
