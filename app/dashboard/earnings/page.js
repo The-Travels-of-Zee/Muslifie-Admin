@@ -248,35 +248,36 @@ export default function AdminEarningsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
             Earnings Management
           </h1>
-          <p className="text-gray-600 mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-sm sm:text-base text-gray-600 mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Manage platform earnings and release pending payments to user balances
           </p>
         </div>
-        
+
         {pendingEarnings.length > 0 && (
           <button
             onClick={() => setShowReleaseModal(true)}
-            className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-all duration-200"
+            className="w-full sm:w-auto flex items-center justify-center px-4 sm:px-6 py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-all duration-200 text-sm sm:text-base"
             style={{ fontFamily: 'Poppins, sans-serif' }}
           >
-            <PlayIcon className="w-5 h-5 mr-2" />
-            Release Pending Payments ({pendingEarnings.length})
+            <PlayIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+            <span className="hidden sm:inline">Release Pending Payments ({pendingEarnings.length})</span>
+            <span className="sm:hidden">Release ({pendingEarnings.length})</span>
           </button>
         )}
       </div>
 
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-start space-x-3">
-          <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div className="text-sm">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
+        <div className="flex items-start space-x-2 sm:space-x-3">
+          <InformationCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm">
             <h3 className="font-medium text-blue-900 mb-1">Payment Status Explained</h3>
             <ul className="text-blue-800 space-y-1">
               <li><strong>Pending Release:</strong> Earnings held until tour completion - require admin approval</li>
@@ -288,31 +289,31 @@ export default function AdminEarningsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-purple-100 p-3 rounded-xl">
-              <CurrencyDollarIcon className="w-6 h-6 text-purple-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-purple-100 p-2 sm:p-3 rounded-lg sm:rounded-xl">
+              <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
             ${stats.totalAmount.toLocaleString()}
           </h3>
-          <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-gray-600 text-xs sm:text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Total Earnings
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-yellow-100 p-3 rounded-xl">
-              <ClockIcon className="w-6 h-6 text-yellow-600" />
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-yellow-100 p-2 sm:p-3 rounded-lg sm:rounded-xl">
+              <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
             </div>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
             ${stats.pendingAmount.toLocaleString()}
           </h3>
-          <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-gray-600 text-xs sm:text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Pending Release
           </p>
           <p className="text-xs text-yellow-700 mt-1">
@@ -320,16 +321,16 @@ export default function AdminEarningsPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-green-100 p-3 rounded-xl">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-green-100 p-2 sm:p-3 rounded-lg sm:rounded-xl">
+              <CheckCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
             ${stats.confirmedAmount.toLocaleString()}
           </h3>
-          <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-gray-600 text-xs sm:text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Available for Withdrawal
           </p>
           <p className="text-xs text-green-700 mt-1">
@@ -337,16 +338,16 @@ export default function AdminEarningsPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-blue-100 p-3 rounded-xl">
-              <BanknotesIcon className="w-6 h-6 text-blue-600" />
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-lg sm:rounded-xl">
+              <BanknotesIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Jost, sans-serif' }}>
             ${stats.paidAmount.toLocaleString()}
           </h3>
-          <p className="text-gray-600 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-gray-600 text-xs sm:text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
             Successfully Withdrawn
           </p>
           <p className="text-xs text-blue-700 mt-1">
@@ -356,27 +357,27 @@ export default function AdminEarningsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
+      <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+        <div className="flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search earnings..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 w-64"
+                className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm sm:text-base"
                 style={{ fontFamily: 'Poppins, sans-serif' }}
               />
             </div>
-            
+
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              className="flex items-center justify-center px-4 py-2.5 sm:py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-sm sm:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
-              <FunnelIcon className="w-5 h-5 mr-2" />
+              <FunnelIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Filters
               <ChevronDownIcon className={`w-4 h-4 ml-2 transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
             </button>
@@ -384,11 +385,11 @@ export default function AdminEarningsPage() {
         </div>
 
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <select
               value={userTypeFilter}
               onChange={(e) => setUserTypeFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2.5 sm:py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <option value="all">All User Types</option>
@@ -399,7 +400,7 @@ export default function AdminEarningsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2.5 sm:py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <option value="all">All Status</option>
@@ -409,7 +410,7 @@ export default function AdminEarningsPage() {
             </select>
 
             <select
-              className="px-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2.5 sm:py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <option value="all">All Time</option>
@@ -424,7 +425,7 @@ export default function AdminEarningsPage() {
                 setUserTypeFilter('all');
                 setStatusFilter('all');
               }}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              className="w-full px-4 py-2.5 sm:py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm sm:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               Clear Filters
@@ -434,22 +435,23 @@ export default function AdminEarningsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100">
+        <div className="border-b border-gray-200 overflow-x-auto">
+          <nav className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setSelectedTab(tab.id)}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                   selectedTab === tab.id
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
                 style={{ fontFamily: 'Poppins, sans-serif' }}
               >
-                {tab.name}
-                <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
+                <span className="ml-1 sm:ml-2 bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs">
                   {tab.count}
                 </span>
               </button>
