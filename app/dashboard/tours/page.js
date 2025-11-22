@@ -1160,149 +1160,150 @@ const ToursManagement = () => {
       </div>
 
       {/* Stats Cards with Tour Type Information */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 lg:gap-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-orange-100 p-3 rounded-xl">
-              <ClockIcon className="w-6 h-6 text-orange-600" />
+            <div className="bg-orange-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.pending}
               </p>
-              <p className="text-sm text-gray-600">Pending Review</p>
+              <p className="text-xs sm:text-sm text-gray-600">Pending Review</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-green-100 p-3 rounded-xl">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+            <div className="bg-green-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <CheckCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.active}
               </p>
-              <p className="text-sm text-gray-600">Active Tours</p>
+              <p className="text-xs sm:text-sm text-gray-600">Active Tours</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-red-100 p-3 rounded-xl">
-              <XCircleIcon className="w-6 h-6 text-red-600" />
+            <div className="bg-red-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.rejected}
               </p>
-              <p className="text-sm text-gray-600">Rejected</p>
+              <p className="text-xs sm:text-sm text-gray-600">Rejected</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-blue-100 p-3 rounded-xl">
-              <MapIcon className="w-6 h-6 text-blue-600" />
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <MapIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.total}
               </p>
-              <p className="text-sm text-gray-600">Total Tours</p>
+              <p className="text-xs sm:text-sm text-gray-600">Total Tours</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-purple-100 p-3 rounded-xl">
-              <BriefcaseIcon className="w-6 h-6 text-purple-600" />
+            <div className="bg-purple-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <BriefcaseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.packages}
               </p>
-              <p className="text-sm text-gray-600">Packages</p>
+              <p className="text-xs sm:text-sm text-gray-600">Packages</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
           <div className="flex items-center">
-            <div className="bg-indigo-100 p-3 rounded-xl">
-              <ClockIcon className="w-6 h-6 text-indigo-600" />
+            <div className="bg-indigo-100 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+              <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Jost, sans-serif' }}>
+            <div className="ml-3 sm:ml-4 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Jost, sans-serif' }}>
                 {stats.dayTrips}
               </p>
-              <p className="text-sm text-gray-600">Day Trips</p>
+              <p className="text-xs sm:text-sm text-gray-600">Day Trips</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters and Search with Tour Type Filter */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search tours..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 w-64"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              />
-            </div>
+      <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100">
+        <div className="flex flex-col gap-4">
+          {/* Search Bar - Full Width on Mobile */}
+          <div className="relative w-full">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search tours..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-gray-100 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm sm:text-base"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            />
+          </div>
 
-            <div className="flex items-center space-x-3">
-              <select
-                value={selectedFilter}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                <option value="all">All Status</option>
-                <option value="pending_review">Pending Review</option>
-                <option value="active">Active</option>
-                <option value="rejected">Rejected</option>
-                <option value="draft">Draft</option>
-                <option value="paused">Paused</option>
-                <option value="archived">Archived</option>
-              </select>
+          {/* Filters - Stack on Mobile, Grid on Larger Screens */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <select
+              value={selectedFilter}
+              onChange={(e) => setSelectedFilter(e.target.value)}
+              className="w-full bg-gray-100 border-0 rounded-xl py-2.5 sm:py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm sm:text-base"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            >
+              <option value="all">All Status</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="active">Active</option>
+              <option value="rejected">Rejected</option>
+              <option value="draft">Draft</option>
+              <option value="paused">Paused</option>
+              <option value="archived">Archived</option>
+            </select>
 
-              <select
-                value={selectedTourType}
-                onChange={(e) => setSelectedTourType(e.target.value)}
-                className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                <option value="all">All Types</option>
-                <option value="day_trip">Day Trips</option>
-                <option value="package">Packages</option>
-              </select>
+            <select
+              value={selectedTourType}
+              onChange={(e) => setSelectedTourType(e.target.value)}
+              className="w-full bg-gray-100 border-0 rounded-xl py-2.5 sm:py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm sm:text-base"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            >
+              <option value="all">All Types</option>
+              <option value="day_trip">Day Trips</option>
+              <option value="package">Packages</option>
+            </select>
 
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                <option value="all">All Categories</option>
-                <option value="Islamic Heritage">Islamic Heritage</option>
-                <option value="Food Tours">Food Tours</option>
-                <option value="Mosque Architecture">Mosque Architecture</option>
-                <option value="Cultural Tours">Cultural Tours</option>
-                <option value="Historical Tours">Historical Tours</option>
-                <option value="Walking Tours">Walking Tours</option>
-                <option value="City Tours">City Tours</option>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full bg-gray-100 border-0 rounded-xl py-2.5 sm:py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm sm:text-base"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
+            >
+              <option value="all">All Categories</option>
+              <option value="Islamic Heritage">Islamic Heritage</option>
+              <option value="Food Tours">Food Tours</option>
+              <option value="Mosque Architecture">Mosque Architecture</option>
+              <option value="Cultural Tours">Cultural Tours</option>
+              <option value="Historical Tours">Historical Tours</option>
+              <option value="Walking Tours">Walking Tours</option>
+              <option value="City Tours">City Tours</option>
               </select>
             </div>
           </div>
