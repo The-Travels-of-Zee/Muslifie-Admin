@@ -17,7 +17,8 @@ import {
   ShieldCheckIcon,
   PaperAirplaneIcon,
   ChatBubbleLeftIcon,
-  FireIcon
+  FireIcon,
+  PlusCircleIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -39,16 +40,15 @@ export default function DashboardLayout({ children }) {
     { id: 'users', name: 'Users', icon: UsersIcon, href: '/dashboard/users', badge: badges.users },
     { id: 'verification', name: 'Verification', icon: ShieldCheckIcon, href: '/dashboard/verification', badge: badges.verification },
     { id: 'tours', name: 'Tours', icon: MapIcon, href: '/dashboard/tours', badge: badges.tours },
+    // 🔥 NEW: Create for Partner button - positioned right after Tours
+    { id: 'create-tour', name: 'Create for Partner', icon: PlusCircleIcon, href: '/dashboard/tours/create-for-partner', badge: null, isAction: true },
     { id: 'bookings', name: 'Bookings', icon: CalendarDaysIcon, href: '/dashboard/bookings', badge: null },
     { id: 'earnings', name: 'Earnings', icon: CurrencyDollarIcon, href: '/dashboard/earnings', badge: badges.earnings },
     { id: 'withdrawals', name: 'Withdrawals', icon: BanknotesIcon, href: '/dashboard/withdrawals', badge: badges.withdrawals },
     { id: 'firebase-analytics', name: 'Firebase Analytics', icon: FireIcon, href: '/dashboard/firebase-analytics', badge: null },
     { id: 'chat', name: 'Live Chat', icon: ChatBubbleLeftIcon, href: '/dashboard/chat', badge: badges.chat },
     { id: 'email', name: 'Send Email', icon: PaperAirplaneIcon, href: '/dashboard/email', badge: null },
-   
     { id: 'analytics', name: 'Analytics', icon: ChartBarSquareIcon, href: '/dashboard/analytics', badge: null },
-   
-    // { id: 'settings', name: 'Settings', icon: Cog6ToothIcon, href: '/dashboard/settings', badge: null }
   ];
 
   // Fetch badge counts in the background (non-blocking)
@@ -198,10 +198,11 @@ export default function DashboardLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed left-0 top-0 z-50 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+      <div className={`fixed left-0 top-0 z-50 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center">
             <div className="bg-white/20 backdrop-blur-sm border border-white/30 p-2 rounded-2xl shadow-lg">
               <div className="w-10 h-8 flex items-center justify-center">
@@ -232,14 +233,17 @@ export default function DashboardLayout({ children }) {
           </button>
         </div>
 
-        <nav className="p-4 space-y-2">
+        {/* 🔥 Navigation - Scrollable */}
+        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {menuItems.map((item) => (
             <Link
               key={item.id}
               href={item.href}
               onClick={() => setSidebarOpen(false)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
-                isActiveRoute(item.href)
+                item.isAction 
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md'
+                  : isActiveRoute(item.href)
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
@@ -247,12 +251,16 @@ export default function DashboardLayout({ children }) {
             >
               <div className="flex items-center">
                 <item.icon className={`w-5 h-5 mr-3 ${
-                  isActiveRoute(item.href) 
+                  item.isAction
+                    ? 'text-white'
+                    : isActiveRoute(item.href) 
                     ? 'text-indigo-600' 
                     : 'group-hover:text-indigo-600'
                 }`} />
                 <span className={`font-medium ${
-                  isActiveRoute(item.href) 
+                  item.isAction
+                    ? 'text-white'
+                    : isActiveRoute(item.href) 
                     ? 'text-indigo-700' 
                     : 'group-hover:text-indigo-600'
                 }`}>
@@ -268,7 +276,8 @@ export default function DashboardLayout({ children }) {
           ))}
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
+        {/* Logout Button - Fixed at bottom */}
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
           <button 
             onClick={handleLogout}
             className="w-full flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
@@ -356,6 +365,15 @@ export default function DashboardLayout({ children }) {
             </div>
           </div>
         </div>
+
+        {/* 🔥 Mobile Quick Action Button (Floating) - Optional */}
+        <button
+          onClick={() => router.push('/dashboard/tours/create-for-partner')}
+          className="md:hidden fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-200"
+          title="Create for Partner"
+        >
+          <PlusCircleIcon className="w-6 h-6" />
+        </button>
 
         {/* Page Content */}
         <div className="p-6">
