@@ -203,60 +203,45 @@ const ToursManagement = () => {
 
   const handleAction = async (tourId, action, data = {}) => {
     setProcessingAction(tourId);
-
+  
     try {
-      // Update tour status on backend
+      // 1. Call backend first
       await apiService.updateTourStatus(tourId, action, data.reviewNotes);
-
-      // AGGRESSIVE CACHE INVALIDATION - Clear all tour-related caches
+  
+      // 2. Clear caches
       apiService.invalidateCache('/admin/tours');
       apiService.invalidateCache('/admin/verifications');
       apiService.invalidateCache('/admin/analytics');
-
-      // Update local state immediately
-      setTours(prevTours =>
-        prevTours.filter(tour => tour._id !== tourId) // Remove from pending list if approved/rejected
-      );
-
-      // Update stats
-      setStats(prevStats => {
-        const newStats = { ...prevStats };
-        const tour = tours.find(t => t._id === tourId);
-
-        if (tour) {
-          if (tour.status === 'pending_review') newStats.pending = Math.max(0, newStats.pending - 1);
-          else if (tour.status === 'active') newStats.active = Math.max(0, newStats.active - 1);
-          else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
-
-          if (action === 'pending_review') newStats.pending++;
-          else if (action === 'active') newStats.active++;
-          else if (action === 'rejected') newStats.rejected++;
-        }
-
-        return newStats;
-      });
-
+  
+      // 3. Close modal
       setSelectedTour(null);
+      
+      // 4. Show loading state and fetch fresh data
+      setLoading(true);
+      
+      // 5. Wait a bit for backend to process, then fetch
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // 6. Fetch fresh data - this will update both tours and stats correctly
+      await fetchTours(true);
+      
+      // 7. Show success message AFTER refresh completes
       alert(`Tour status changed to ${action} successfully!`);
-
-      // IMMEDIATE FORCE REFRESH - Don't wait, refresh immediately
-      fetchTours(false);
-
-      // Also trigger a window event to notify the layout to refresh badge counts
+  
+      // 8. Trigger window event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tourStatusChanged', {
-          detail: { tourId, oldStatus: tours.find(t => t._id === tourId)?.status, newStatus: action }
+          detail: { tourId, oldStatus: null, newStatus: action }
         }));
       }
-
+  
     } catch (error) {
       console.error(`Error updating tour status:`, error);
       alert(`Failed to update tour status. Please try again.`);
-
-      // On error, force refresh to get correct state from server
       fetchTours(true);
     } finally {
       setProcessingAction(null);
+      setLoading(false);
     }
   };
 
