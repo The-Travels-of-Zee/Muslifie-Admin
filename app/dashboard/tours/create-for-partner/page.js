@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UserGroupIcon,
@@ -20,10 +20,18 @@ import {
   SparklesIcon,
   ExclamationTriangleIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
-import apiService from '../../../../lib/apiService';
 
+import apiService from '../../../../lib/apiService';
+import CountryCitySelector from './../../../../components/CountryCitySelector';
+import LocationInput from './../../../../components/LocationInput';
+
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export default function CreateTourForPartnerPage() {
   const router = useRouter();
   
@@ -127,6 +135,7 @@ export default function CreateTourForPartnerPage() {
       bookingPolicy: {
         advanceBookingDays: 7,
         cancellationPolicy: 'Moderate',
+        cancellationDeadline: '',
         refundPolicy: ''
       }
     }
@@ -499,7 +508,7 @@ export default function CreateTourForPartnerPage() {
     if (!formData.title || formData.title.length < 10) newErrors.title = 'Title must be at least 10 characters';
     if (!formData.description || formData.description.length < 50) newErrors.description = 'Description must be at least 50 characters';
     if (!formData.category) newErrors.category = 'Please select a category';
-    if (formData.duration < 0.5) newErrors.duration = 'Duration must be at least 0.5 hours';
+    if (formData.duration < 0.5) newErrors.duration = 'Duration must be at least 0.5';
     if (formData.pricePerPerson <= 0) newErrors.price = 'Price must be greater than 0';
     if (!formData.location.country) newErrors.country = 'Country is required';
     if (!formData.location.city) newErrors.city = 'City is required';
@@ -515,6 +524,7 @@ export default function CreateTourForPartnerPage() {
       if (formData.packageDetails.totalDays < 1) newErrors.totalDays = 'Total days must be at least 1';
       if (formData.packageDetails.dayWiseItinerary.length === 0) newErrors.dayWiseItinerary = 'Add at least one day itinerary';
       if (formData.availability.startDates.length === 0) newErrors.startDates = 'Add at least one start date for package tour';
+      if (!formData.packageDetails.bookingPolicy.cancellationDeadline) newErrors.cancellationDeadline = 'Cancellation deadline is required';
     }
     
     setErrors(newErrors);
@@ -744,7 +754,8 @@ export default function CreateTourForPartnerPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (hours) *
+                    {/* 🔥 CHANGE 1: Dynamic label based on tour type */}
+                    Duration ({tourType === 'package' ? 'days' : 'hours'}) *
                   </label>
                   <input
                     type="number"
@@ -752,7 +763,7 @@ export default function CreateTourForPartnerPage() {
                     value={formData.duration}
                     onChange={handleInputChange}
                     min="0.5"
-                    step="0.5"
+                    step={tourType === 'package' ? '1' : '0.5'}
                     className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 ${
                       errors.duration ? 'border-red-500' : 'border-gray-300'
                     }`}
@@ -765,60 +776,33 @@ export default function CreateTourForPartnerPage() {
           )}
         </div>
 
-        {/* Location */}
+        {/* Location - 🔥 CHANGE 2: Using CountryCitySelector */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <SectionHeader icon={MapPinIcon} title="Location" sectionKey="location" />
           
-          {expandedSections.location && (
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Country *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location.country}
-                  onChange={(e) => handleLocationChange('country', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 ${
-                    errors.country ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="e.g., Turkey"
-                  required
-                />
-                {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location.city}
-                  onChange={(e) => handleLocationChange('city', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 ${
-                    errors.city ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="e.g., Istanbul"
-                  required
-                />
-                {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Area (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.location.area}
-                  onChange={(e) => handleLocationChange('area', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                  placeholder="e.g., Sultanahmet"
-                />
-              </div>
-            </div>
-          )}
+       
+{expandedSections.location && (
+  <div className="mt-4 space-y-4">
+    <CountryCitySelector
+      selectedCountry={formData.location.country}
+      selectedCity={formData.location.city}
+      onCountryChange={(country) => {
+        console.log('Parent received country:', country); // Add this debug
+        handleLocationChange('country', country);
+      }}
+      onCityChange={(city) => {
+        console.log('Parent received city:', city); // Add this debug
+        handleLocationChange('city', city);
+      }}
+      required={true}
+    />
+    
+    {/* Show current values for debugging
+    <p style={{ color: 'red', fontSize: '12px' }}>
+      Debug: Country = {formData.location.country || 'none'}, City = {formData.location.city || 'none'} */}
+    {/* </p> */}
+  </div>
+)}
         </div>
 
         {/* Pricing */}
@@ -1072,38 +1056,36 @@ export default function CreateTourForPartnerPage() {
           )}
         </div>
 
-        {/* Meeting Point */}
+        {/* Meeting Point - 🔥 CHANGE 3: Using LocationInput with coordinates */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <SectionHeader icon={MapPinIcon} title="Meeting Point Details" sectionKey="meeting" />
           
           {expandedSections.meeting && (
             <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Meeting Point Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.meetingPoint.name}
-                    onChange={(e) => handleMeetingPointChange('name', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., Blue Mosque entrance"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Return Location
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.meetingPoint.returnLocation}
-                    onChange={(e) => handleMeetingPointChange('returnLocation', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Same as meeting point or different"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Meeting Point Location *
+                </label>
+                <LocationInput
+                  value={formData.meetingPoint.name}
+                  onChange={(value) => handleMeetingPointChange('name', value)}
+                  onLocationSelect={(locationData) => {
+                    handleMeetingPointChange('name', locationData.name);
+                    setFormData(prev => ({
+                      ...prev,
+                      meetingPoint: {
+                        ...prev.meetingPoint,
+                        coordinates: locationData.coordinates
+                      }
+                    }));
+                  }}
+                  placeholder="Search for meeting point location..."
+                />
+                {formData.meetingPoint.coordinates.lat !== 0 && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center">
+                    ✓ Coordinates saved: {formData.meetingPoint.coordinates.lat.toFixed(6)}, {formData.meetingPoint.coordinates.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1116,6 +1098,19 @@ export default function CreateTourForPartnerPage() {
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
                   placeholder="How to find the meeting point, what to look for, etc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Return Location (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.meetingPoint.returnLocation}
+                  onChange={(e) => handleMeetingPointChange('returnLocation', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Same as meeting point or different"
                 />
               </div>
 
@@ -1559,7 +1554,7 @@ export default function CreateTourForPartnerPage() {
                   />
                 </div>
 
-                {/* Booking Policy */}
+                {/* Booking Policy - 🔥 CHANGE 4: Added Cancellation Deadline */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Booking Policy
@@ -1588,6 +1583,24 @@ export default function CreateTourForPartnerPage() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  {/* 🔥 NEW: Cancellation Deadline Field */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Cancellation Deadline * <span className="text-xs text-gray-500">(Date before tour starts)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.packageDetails.bookingPolicy.cancellationDeadline}
+                      onChange={(e) => handlePackageNestedChange('bookingPolicy', 'cancellationDeadline', e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 ${
+                        errors.cancellationDeadline ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      required
+                    />
+                    {errors.cancellationDeadline && <p className="text-red-500 text-sm mt-1">{errors.cancellationDeadline}</p>}
                   </div>
 
                   <div className="mt-3">
