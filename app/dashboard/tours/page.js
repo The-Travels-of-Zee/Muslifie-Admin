@@ -47,7 +47,7 @@ const ToursManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTour, setSelectedTour] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
-  
+
   // Real state management
   const [tours, setTours] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ const ToursManagement = () => {
       if (showLoading) {
         setLoading(true);
       }
-      
+
       const filters = {
         status: selectedFilter === 'all' ? undefined : selectedFilter,
         category: selectedCategory === 'all' ? undefined : selectedCategory,
@@ -99,10 +99,10 @@ const ToursManagement = () => {
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
       const response = await apiService.getTours(filters);
-      
+
       setTours(response.data.tours);
       setPagination(response.data.pagination);
-      
+
       // Calculate enhanced stats including tour types (with normalization)
       const allTours = response.data.tours;
       setStats({
@@ -113,7 +113,7 @@ const ToursManagement = () => {
         packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
         dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
       });
-      
+
       setError(null);
     } catch (error) {
       console.error('Error fetching tours:', error);
@@ -203,38 +203,38 @@ const ToursManagement = () => {
 
   const handleAction = async (tourId, action, data = {}) => {
     setProcessingAction(tourId);
-  
+
     try {
       // 1. Call backend first
       await apiService.updateTourStatus(tourId, action, data.reviewNotes);
-  
+
       // 2. Clear caches
       apiService.invalidateCache('/admin/tours');
       apiService.invalidateCache('/admin/verifications');
       apiService.invalidateCache('/admin/analytics');
-  
+
       // 3. Close modal
       setSelectedTour(null);
-      
+
       // 4. Show loading state and fetch fresh data
       setLoading(true);
-      
+
       // 5. Wait a bit for backend to process, then fetch
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // 6. Fetch fresh data - this will update both tours and stats correctly
       await fetchTours(true);
-      
+
       // 7. Show success message AFTER refresh completes
       alert(`Tour status changed to ${action} successfully!`);
-  
+
       // 8. Trigger window event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tourStatusChanged', {
           detail: { tourId, oldStatus: null, newStatus: action }
         }));
       }
-  
+
     } catch (error) {
       console.error(`Error updating tour status:`, error);
       alert(`Failed to update tour status. Please try again.`);
@@ -249,38 +249,38 @@ const ToursManagement = () => {
     setProcessingAction(tourId);
     try {
       await apiService.deleteTour(tourId, deleteReason);
-      
+
       // Remove tour from state
       setTours(prevTours => prevTours.filter(tour => tour._id !== tourId));
-      
+
       // Update stats
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const tour = tours.find(t => t._id === tourId);
-        
+
         if (tour) {
           newStats.total = Math.max(0, newStats.total - 1);
-          
+
           if (tour.status === 'pending_review') newStats.pending = Math.max(0, newStats.pending - 1);
           else if (tour.status === 'active') newStats.active = Math.max(0, newStats.active - 1);
           else if (tour.status === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
-          
+
           const normalizedType = normalizeTourType(tour.tourType);
           if (normalizedType === 'package') newStats.packages = Math.max(0, newStats.packages - 1);
           else newStats.dayTrips = Math.max(0, newStats.dayTrips - 1);
         }
-        
+
         return newStats;
       });
-      
+
       setSelectedTour(null);
       alert('Tour deleted successfully!');
-      
+
       // Refresh tours list
       setTimeout(() => {
         fetchTours(false);
       }, 500);
-      
+
     } catch (error) {
       console.error('Error deleting tour:', error);
       alert(error.message || 'Failed to delete tour. Please try again.');
@@ -414,7 +414,7 @@ const ToursManagement = () => {
                 {tour.availability && (
                   <div className="flex items-center text-gray-600">
                     <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                    {tour.availability.type === 'recurring' 
+                    {tour.availability.type === 'recurring'
                       ? `${tour.availability.days?.length || 0} days/week`
                       : `${tour.availability.startDates?.length || 0} start dates`
                     }
@@ -796,7 +796,7 @@ const ToursManagement = () => {
                 <h4 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Additional Information
                 </h4>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* What to Bring */}
                   {tour.additionalInfo.whatToBring?.length > 0 && (
@@ -896,7 +896,7 @@ const ToursManagement = () => {
               <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                 Status Management
               </h4>
-              
+
               <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -976,17 +976,16 @@ const ToursManagement = () => {
                   <button
                     onClick={handleStatusChange}
                     disabled={processingAction === tour._id}
-                    className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base ${
-                      selectedStatus === 'active'
+                    className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base ${selectedStatus === 'active'
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : selectedStatus === 'rejected'
-                        ? 'bg-red-600 hover:bg-red-700 text-white'
-                        : selectedStatus === 'paused'
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : selectedStatus === 'archived'
-                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                        : 'bg-gray-600 hover:bg-gray-700 text-white'
-                    }`}
+                          ? 'bg-red-600 hover:bg-red-700 text-white'
+                          : selectedStatus === 'paused'
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : selectedStatus === 'archived'
+                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                              : 'bg-gray-600 hover:bg-gray-700 text-white'
+                      }`}
                     style={{ fontFamily: 'Poppins, sans-serif' }}
                   >
                     {processingAction === tour._id ? 'Processing...' : `Change Status to ${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)}`}
@@ -1350,8 +1349,8 @@ const ToursManagement = () => {
                         </div>
                         <div className="flex items-center mt-2">
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" 
+                            <div
+                              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full"
                               style={{ width: `${tour.completionPercentage || 0}%` }}
                             ></div>
                           </div>

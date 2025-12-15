@@ -23,7 +23,9 @@ import {
   EnvelopeIcon,
   UserGroupIcon,
   UserIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  // NEW: Import for food partner
+  BuildingStorefrontIcon
 } from '@heroicons/react/24/outline';
 import apiService from '../../../lib/apiService';
 
@@ -91,15 +93,18 @@ const VerificationManagement = () => {
     return () => clearTimeout(timeoutId);
   }, [selectedFilter, selectedServiceType, selectedGuideType, searchTerm]);
 
+  // ✅ UPDATED: Add food_partner support
   const getGuideTypeLabel = (guideType) => {
     const labels = {
       single_certified: 'Certified Guide',
       single_uncertified: 'Uncertified Guide',
-      company: 'Company'
+      company: 'Company',
+      food_partner: 'Food Partner' // NEW
     };
     return labels[guideType] || 'Not Specified';
   };
 
+  // ✅ UPDATED: Add food_partner icon
   const getGuideTypeIcon = (guideType) => {
     switch (guideType) {
       case 'single_certified':
@@ -108,11 +113,14 @@ const VerificationManagement = () => {
         return <UserIcon className="w-4 h-4" />;
       case 'company':
         return <BuildingOfficeIcon className="w-4 h-4" />;
+      case 'food_partner': // NEW
+        return <BuildingStorefrontIcon className="w-4 h-4" />;
       default:
         return <UserGroupIcon className="w-4 h-4" />;
     }
   };
 
+  // ✅ UPDATED: Add food_partner color
   const getGuideTypeColor = (guideType) => {
     switch (guideType) {
       case 'single_certified':
@@ -121,6 +129,8 @@ const VerificationManagement = () => {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'company':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'food_partner': // NEW
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -365,21 +375,38 @@ const VerificationManagement = () => {
     }
   };
 
+  // ✅ UPDATED: Add food partner document types
   const DocumentViewer = ({ document, type, title, verificationId }) => {
     if (!document || !document.fileUrl) return null;
 
     const getDocumentIcon = (type) => {
       switch (type) {
+        // Tour Guide documents
         case 'tourGuideCertificate':
           return <AcademicCapIcon className="w-5 h-5 text-purple-600 mr-2" />;
         case 'governmentId':
         case 'personInChargeId':
+        case 'ownerGovernmentId': // NEW
           return <IdentificationIcon className="w-5 h-5 text-blue-600 mr-2" />;
         case 'companyRegistration':
         case 'businessLicense':
           return <BuildingOfficeIcon className="w-5 h-5 text-indigo-600 mr-2" />;
         case 'companyTaxDocument':
           return <DocumentTextIcon className="w-5 h-5 text-green-600 mr-2" />;
+        
+        // NEW: Food Partner documents
+        case 'foodBusinessLicense':
+          return <DocumentTextIcon className="w-5 h-5 text-orange-600 mr-2" />;
+        case 'halalCertificate':
+          return <ShieldCheckIcon className="w-5 h-5 text-green-600 mr-2" />;
+        case 'restaurantPhotos':
+        case 'menuPhotos':
+          return <PhotoIcon className="w-5 h-5 text-pink-600 mr-2" />;
+        case 'healthSafetyCertificate':
+          return <ShieldCheckIcon className="w-5 h-5 text-blue-600 mr-2" />;
+        case 'insuranceCertificate':
+          return <DocumentTextIcon className="w-5 h-5 text-indigo-600 mr-2" />;
+        
         default:
           return <DocumentTextIcon className="w-5 h-5 text-blue-600 mr-2" />;
       }
@@ -481,8 +508,10 @@ const VerificationManagement = () => {
       );
     }
 
+    // ✅ UPDATED: Add food partner required documents
     const getRequiredDocuments = () => {
       if (!verification.guideType) {
+        // Legacy documents
         return [
           { key: 'passportId', label: 'Passport/ID' },
           { key: 'businessLicense', label: 'Business License' },
@@ -506,6 +535,16 @@ const VerificationManagement = () => {
             { key: 'companyRegistration', label: 'Company Registration' },
             { key: 'personInChargeId', label: 'Person in Charge ID' },
             { key: 'companyTaxDocument', label: 'Company Tax Document' }
+          ];
+        case 'food_partner': // NEW
+          return [
+            { key: 'foodBusinessLicense', label: 'Food Business License' },
+            { key: 'halalCertificate', label: 'Halal Certification' },
+            { key: 'restaurantPhotos', label: 'Restaurant Photos' },
+            { key: 'menuPhotos', label: 'Menu Photos' },
+            { key: 'ownerGovernmentId', label: 'Owner Government ID' },
+            { key: 'healthSafetyCertificate', label: 'Health & Safety Certificate (Optional)' },
+            { key: 'insuranceCertificate', label: 'Insurance Certificate (Optional)' }
           ];
         default:
           return [];
@@ -1014,16 +1053,18 @@ const VerificationManagement = () => {
               <option value="incomplete">Incomplete</option>
             </select>
 
+            {/* ✅ UPDATED: Add food_partner option */}
             <select
               value={selectedGuideType}
               onChange={(e) => setSelectedGuideType(e.target.value)}
               className="bg-gray-100 border-0 rounded-xl py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all duration-200 text-sm md:text-base"
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
-              <option value="all">All Guide Types</option>
+              <option value="all">All Partner Types</option>
               <option value="single_certified">Certified Guide</option>
               <option value="single_uncertified">Uncertified Guide</option>
               <option value="company">Company</option>
+              <option value="food_partner">Food Partner</option>
             </select>
 
             <select
@@ -1064,7 +1105,7 @@ const VerificationManagement = () => {
                   Business
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  Guide Type
+                  Partner Type
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Service Type
@@ -1205,7 +1246,7 @@ const VerificationManagement = () => {
                 </div>
                 {verification.guideType && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Guide Type:</span>
+                    <span className="text-gray-600">Partner Type:</span>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getGuideTypeColor(verification.guideType)}`}>
                       {getGuideTypeIcon(verification.guideType)}
                       <span className="ml-1">{getGuideTypeLabel(verification.guideType)}</span>
