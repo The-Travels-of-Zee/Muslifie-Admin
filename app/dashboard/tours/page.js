@@ -80,50 +80,52 @@ const ToursManagement = () => {
   };
 
   // Fetch tours with tourType filter
-  const fetchTours = async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-
-      const filters = {
-        status: selectedFilter === 'all' ? undefined : selectedFilter,
-        category: selectedCategory === 'all' ? undefined : selectedCategory,
-        tourType: selectedTourType === 'all' ? undefined : selectedTourType,
-        search: searchTerm || undefined,
-        page: 1,
-        limit: 50
-      };
-
-      // Remove undefined values
-      Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
-
-      const response = await apiService.getTours(filters);
-
-      setTours(response.data.tours);
-      setPagination(response.data.pagination);
-
-      // Calculate enhanced stats including tour types (with normalization)
-      const allTours = response.data.tours;
-      setStats({
-        pending: allTours.filter(t => t.status === 'pending_review').length,
-        active: allTours.filter(t => t.status === 'active').length,
-        rejected: allTours.filter(t => t.status === 'rejected').length,
-        total: allTours.length,
-        packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
-        dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
-      });
-
-      setError(null);
-    } catch (error) {
-      console.error('Error fetching tours:', error);
-      setError('Failed to load tours. Please try again.');
-    } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+  // In ToursManagement component
+const fetchTours = async (showLoading = true, forceRefresh = false) => {
+  try {
+    if (showLoading) {
+      setLoading(true);
     }
-  };
+
+    const filters = {
+      status: selectedFilter === 'all' ? undefined : selectedFilter,
+      category: selectedCategory === 'all' ? undefined : selectedCategory,
+      tourType: selectedTourType === 'all' ? undefined : selectedTourType,
+      search: searchTerm || undefined,
+      page: 1,
+      limit: 50
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    // 🔥 PASS forceRefresh option
+    const response = await apiService.getTours(filters, { forceRefresh });
+
+    setTours(response.data.tours);
+    setPagination(response.data.pagination);
+
+    // Calculate stats...
+    const allTours = response.data.tours;
+    setStats({
+      pending: allTours.filter(t => t.status === 'pending_review').length,
+      active: allTours.filter(t => t.status === 'active').length,
+      rejected: allTours.filter(t => t.status === 'rejected').length,
+      total: allTours.length,
+      packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
+      dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
+    });
+
+    setError(null);
+  } catch (error) {
+    console.error('Error fetching tours:', error);
+    setError('Failed to load tours. Please try again.');
+  } finally {
+    if (showLoading) {
+      setLoading(false);
+    }
+  }
+};
 
   // Initial load and filter updates
   useEffect(() => {
@@ -203,42 +205,42 @@ const ToursManagement = () => {
 
   const handleAction = async (tourId, action, data = {}) => {
     setProcessingAction(tourId);
-
+  
     try {
       // 1. Call backend first
       await apiService.updateTourStatus(tourId, action, data.reviewNotes);
-
+  
       // 2. Clear caches
       apiService.invalidateCache('/admin/tours');
       apiService.invalidateCache('/admin/verifications');
       apiService.invalidateCache('/admin/analytics');
-
+  
       // 3. Close modal
       setSelectedTour(null);
-
-      // 4. Show loading state and fetch fresh data
+  
+      // 4. Show loading state
       setLoading(true);
-
-      // 5. Wait a bit for backend to process, then fetch
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // 6. Fetch fresh data - this will update both tours and stats correctly
-      await fetchTours(true);
-
+  
+      // 5. Wait a bit for backend to process
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Increased to 1 second
+  
+      // 6. 🔥 Fetch fresh data with forceRefresh = true
+      await fetchTours(true, true); // Second parameter is forceRefresh
+  
       // 7. Show success message AFTER refresh completes
       alert(`Tour status changed to ${action} successfully!`);
-
+  
       // 8. Trigger window event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tourStatusChanged', {
           detail: { tourId, oldStatus: null, newStatus: action }
         }));
       }
-
+  
     } catch (error) {
       console.error(`Error updating tour status:`, error);
       alert(`Failed to update tour status. Please try again.`);
-      fetchTours(true);
+      fetchTours(true, true); // Also force refresh on error
     } finally {
       setProcessingAction(null);
       setLoading(false);
