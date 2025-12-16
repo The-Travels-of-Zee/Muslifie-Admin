@@ -207,30 +207,61 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     setProcessingAction(tourId);
   
     try {
-      // 1. Call backend first
-      await apiService.updateTourStatus(tourId, action, data.reviewNotes);
+      console.log('🔄 Starting tour status update:', { tourId, action });
   
-      // 2. Clear caches
+      // 1. Call backend first
+      const updateResponse = await apiService.updateTourStatus(tourId, action, data.reviewNotes);
+      console.log('✅ Backend update response:', updateResponse);
+  
+      // 2. Verify the update was successful
+      if (!updateResponse.success) {
+        throw new Error(updateResponse.message || 'Failed to update tour status');
+      }
+  
+      // 3. Clear caches
       apiService.invalidateCache('/admin/tours');
       apiService.invalidateCache('/admin/verifications');
       apiService.invalidateCache('/admin/analytics');
   
-      // 3. Close modal
-      setSelectedTour(null);
-  
       // 4. Show loading state
       setLoading(true);
   
-      // 5. Wait a bit for backend to process
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Increased to 1 second
+      // 5. Close modal
+      setSelectedTour(null);
   
-      // 6. 🔥 Fetch fresh data with forceRefresh = true
-      await fetchTours(true, true); // Second parameter is forceRefresh
+      // 6. Wait for database to fully commit
+      console.log('⏳ Waiting for database to commit...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
   
-      // 7. Show success message AFTER refresh completes
+      // 7. 🔥 Fetch fresh data and GET THE RETURNED ARRAY
+      console.log('🔄 Fetching fresh tour data...');
+      const freshTours = await fetchTours(true, true);
+      
+      console.log('📦 Fresh tours received:', freshTours?.length || 0);
+  
+      // 8. 🔥 Verify using FRESH DATA (with safety check)
+      if (freshTours && Array.isArray(freshTours) && freshTours.length > 0) {
+        const updatedTour = freshTours.find(t => t._id === tourId);
+        console.log('🔍 Verifying updated tour from FRESH data:', updatedTour);
+  
+        if (updatedTour && updatedTour.status !== action) {
+          console.warn('⚠️ Tour status mismatch! Expected:', action, 'Got:', updatedTour.status);
+          // Wait a bit more and try again
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          const retryFreshTours = await fetchTours(true, true);
+          if (retryFreshTours && Array.isArray(retryFreshTours)) {
+            const retryTour = retryFreshTours.find(t => t._id === tourId);
+            console.log('🔄 Retry verification:', retryTour?.status);
+          }
+        }
+      } else {
+        console.warn('⚠️ Fresh tours data is empty or invalid');
+      }
+  
+      // 9. Show success message
       alert(`Tour status changed to ${action} successfully!`);
   
-      // 8. Trigger window event
+      // 10. Trigger window event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tourStatusChanged', {
           detail: { tourId, oldStatus: null, newStatus: action }
@@ -238,9 +269,12 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
       }
   
     } catch (error) {
-      console.error(`Error updating tour status:`, error);
-      alert(`Failed to update tour status. Please try again.`);
-      fetchTours(true, true); // Also force refresh on error
+      console.error('❌ Error updating tour status:', error);
+      alert(`Failed to update tour status: ${error.message || 'Please try again.'}`);
+      
+      // Try to refresh anyway to show current state
+      setLoading(true);
+      await fetchTours(true, true);
     } finally {
       setProcessingAction(null);
       setLoading(false);
