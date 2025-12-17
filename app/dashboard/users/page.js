@@ -198,6 +198,104 @@ const UsersManagement = () => {
       setProcessingAction(null);
     }
   };
+  const handleExportUsers = () => {
+    // Check if there are users to export
+    if (users.length === 0) {
+      alert('No users to export based on current filters!');
+      return;
+    }
+  
+    // Build confirmation message
+    const filterInfo = [];
+    if (selectedUserType !== 'all') {
+      filterInfo.push(`User Type: ${selectedUserType}`);
+    }
+    if (selectedFilter !== 'all') {
+      filterInfo.push(`Status: ${selectedFilter}`);
+    }
+    if (searchTerm) {
+      filterInfo.push(`Search: "${searchTerm}"`);
+    }
+  
+    const filterText = filterInfo.length > 0 
+      ? `\n\nActive Filters:\n${filterInfo.join('\n')}` 
+      : '\n\nNo filters applied - exporting all users';
+  
+    const confirmMessage = `You are about to export ${users.length} user(s).${filterText}\n\nContinue?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+  
+    try {
+      // CSV Headers
+      const headers = [
+        'Full Name',
+        'Email',
+        'User Type',
+        'Phone',
+        'City',
+        'Verification Status',
+        'Email Verified',
+        'Account Status',
+        'Rating',
+        'Total Reviews',
+        'Completed Tours',
+        'Service Type',
+        'Languages',
+        'Date Joined',
+        'Last Login'
+      ];
+  
+      // Convert users to CSV rows
+      const rows = users.map(user => [
+        user.fullName || 'N/A',
+        user.email || 'N/A',
+        user.userType || 'N/A',
+        user.phone || 'N/A',
+        user.city || 'N/A',
+        (user.verificationStatus || 'unknown').replace('_', ' '),
+        user.emailVerified ? 'Yes' : 'No',
+        user.isActive ? 'Active' : 'Inactive',
+        user.rating || '0',
+        user.totalReviews || '0',
+        user.completedTours || '0',
+        user.serviceType ? getServiceTypeLabel(user.serviceType) : 'N/A',
+        user.languages?.join('; ') || 'N/A',
+        user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A',
+        user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'
+      ]);
+  
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+  
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // Generate filename with filters and date
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filterText = selectedUserType !== 'all' ? `_${selectedUserType}` : '';
+      const statusText = selectedFilter !== 'all' ? `_${selectedFilter}` : '';
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `muslifie_users${filterText}${statusText}_${timestamp}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert(`Successfully exported ${users.length} users!`);
+    } catch (error) {
+      console.error('Error exporting users:', error);
+      alert('Failed to export users. Please try again.');
+    }
+  };
+  
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
@@ -747,12 +845,15 @@ const UsersManagement = () => {
             </div>
           </div>
 
-          <button className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
-            <ArrowDownTrayIcon className="w-5 h-5 mr-2 text-gray-600" />
-            <span className="font-medium text-gray-700" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              Export
-            </span>
-          </button>
+          <button 
+  onClick={handleExportUsers}
+  className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+>
+  <ArrowDownTrayIcon className="w-5 h-5 mr-2 text-gray-600" />
+  <span className="font-medium text-gray-700" style={{ fontFamily: 'Poppins, sans-serif' }}>
+    Export
+  </span>
+</button>
         </div>
       </div>
 

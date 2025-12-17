@@ -27,6 +27,7 @@ import {
   // NEW: Import for food partner
   BuildingStorefrontIcon
 } from '@heroicons/react/24/outline';
+
 import apiService from '../../../lib/apiService';
 
 const VerificationManagement = () => {
