@@ -198,36 +198,62 @@ const UsersManagement = () => {
       setProcessingAction(null);
     }
   };
-  const handleExportUsers = () => {
-    // Check if there are users to export
-    if (users.length === 0) {
-      alert('No users to export based on current filters!');
-      return;
-    }
-  
-    // Build confirmation message
-    const filterInfo = [];
-    if (selectedUserType !== 'all') {
-      filterInfo.push(`User Type: ${selectedUserType}`);
-    }
-    if (selectedFilter !== 'all') {
-      filterInfo.push(`Status: ${selectedFilter}`);
-    }
-    if (searchTerm) {
-      filterInfo.push(`Search: "${searchTerm}"`);
-    }
-  
-    const filterText = filterInfo.length > 0 
-      ? `\n\nActive Filters:\n${filterInfo.join('\n')}` 
-      : '\n\nNo filters applied - exporting all users';
-  
-    const confirmMessage = `You are about to export ${users.length} user(s).${filterText}\n\nContinue?`;
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-  
+  const handleExportUsers = async () => {
     try {
+      // Build confirmation message with current table count
+      const filterInfo = [];
+      if (selectedUserType !== 'all') {
+        filterInfo.push(`User Type: ${selectedUserType}`);
+      }
+      if (selectedFilter !== 'all') {
+        filterInfo.push(`Status: ${selectedFilter}`);
+      }
+      if (searchTerm) {
+        filterInfo.push(`Search: "${searchTerm}"`);
+      }
+  
+      const filterText = filterInfo.length > 0 
+        ? `\n\nActive Filters:\n${filterInfo.join('\n')}` 
+        : '\n\nNo filters applied - exporting all users';
+  
+      const confirmMessage = `You are about to export users with current filters.${filterText}\n\nThis will fetch and export ALL matching users (not limited to what's visible on screen).\n\nContinue?`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+  
+      // Show loading state
+      const exportBtn = document.querySelector('[data-export-btn]');
+      if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Exporting...';
+      }
+  
+      // Fetch ALL users with current filters (no limit)
+      const filters = {
+        userType: selectedUserType === 'all' ? undefined : selectedUserType,
+        verificationStatus: selectedFilter === 'all' ? undefined : selectedFilter,
+        search: searchTerm || undefined,
+        page: 1,
+        limit: 10000 // High limit to get all users
+      };
+  
+      Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+  
+      const response = await apiService.getUsers(filters);
+      
+      let allUsers;
+      if (response.data) {
+        allUsers = response.data.users || [];
+      } else {
+        allUsers = response.users || response || [];
+      }
+  
+      if (allUsers.length === 0) {
+        alert('No users found matching your filters!');
+        return;
+      }
+  
       // CSV Headers
       const headers = [
         'Full Name',
@@ -248,7 +274,7 @@ const UsersManagement = () => {
       ];
   
       // Convert users to CSV rows
-      const rows = users.map(user => [
+      const rows = allUsers.map(user => [
         user.fullName || 'N/A',
         user.email || 'N/A',
         user.userType || 'N/A',
@@ -279,23 +305,29 @@ const UsersManagement = () => {
       
       // Generate filename with filters and date
       const timestamp = new Date().toISOString().split('T')[0];
-      const filterText = selectedUserType !== 'all' ? `_${selectedUserType}` : '';
-      const statusText = selectedFilter !== 'all' ? `_${selectedFilter}` : '';
-      
+      let exportFilterText = selectedUserType !== 'all' ? `_${selectedUserType}` : '';
+      let exportStatusText = selectedFilter !== 'all' ? `_${selectedFilter}` : '';
+
       link.setAttribute('href', url);
-      link.setAttribute('download', `muslifie_users${filterText}${statusText}_${timestamp}.csv`);
+      link.setAttribute('download', `muslifie_users${exportFilterText}${exportStatusText}_${timestamp}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      alert(`Successfully exported ${users.length} users!`);
+      alert(`Successfully exported ${allUsers.length} users!`);
     } catch (error) {
       console.error('Error exporting users:', error);
       alert('Failed to export users. Please try again.');
+    } finally {
+      // Reset button state
+      const exportBtn = document.querySelector('[data-export-btn]');
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.textContent = 'Export';
+      }
     }
   };
-  
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
