@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layout';
-import firestoreService from '@/services/firestore.service';
+import firestoreService from '../../../services/firestore.service';
 import {
   ChatBubbleOvalLeftEllipsisIcon,
   MagnifyingGlassIcon,
