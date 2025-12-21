@@ -393,6 +393,57 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
           </div>
 
           <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+             {/* Tour Images Gallery */}
+             {tour.images && tour.images.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4 flex items-center" style={{ fontFamily: 'Jost, sans-serif' }}>
+                  <PhotoIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                  Tour Images ({tour.images.length})
+                </h4>
+                
+                {/* Cover Image */}
+                {tour.images.find(img => img.isCover) && (
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2 font-medium">Cover Image</p>
+                    <div className="relative rounded-xl overflow-hidden border-2 border-indigo-300">
+                      <img
+                        src={tour.images.find(img => img.isCover).url}
+                        alt="Cover"
+                        className="w-full h-64 sm:h-96 object-cover"
+                      />
+                      <div className="absolute top-2 right-2 bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                        Cover
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Image Gallery */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                  {tour.images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-indigo-400 transition-colors">
+                        <img
+                          src={image.url}
+                          alt={image.originalName || `Tour image ${index + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      </div>
+                      {image.isCover && (
+                        <div className="absolute top-1 right-1 bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-medium">
+                          Cover
+                        </div>
+                      )}
+                      {image.originalName && (
+                        <p className="text-xs text-gray-500 mt-1 truncate" title={image.originalName}>
+                          {image.originalName}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Tour Header with Tour Type */}
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-4 sm:space-y-0">

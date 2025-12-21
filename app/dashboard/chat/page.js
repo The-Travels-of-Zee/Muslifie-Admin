@@ -2,6 +2,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layout';
+import firestoreService from '@/services/firestore.service';
 import {
   ChatBubbleOvalLeftEllipsisIcon,
   MagnifyingGlassIcon,
@@ -13,13 +14,11 @@ import {
 } from '@heroicons/react/24/outline';
 
 function ChatPageContent() {
-  const [socket, setSocket] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [onlineUsers, setOnlineUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   
@@ -28,13 +27,13 @@ function ChatPageContent() {
   const [searchedUsers, setSearchedUsers] = useState([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
   
-  const [typingUsers, setTypingUsers] = useState(new Set());
   const [isMobile, setIsMobile] = useState(false);
   const [showUserList, setShowUserList] = useState(true);
+  const [adminId, setAdminId] = useState(null);
+  const [adminToken, setAdminToken] = useState(null);
   
   const messagesEndRef = useRef(null);
   const messageInputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   
   const selectedConversationRef = useRef(null);
@@ -43,162 +42,123 @@ function ChatPageContent() {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
 
+  // Initialize Firebase Firestore and get admin info
   useEffect(() => {
-    const initializeSocket = async () => {
-      try {
-        const token = localStorage.getItem('adminToken');
-        if (!token) {
-          console.error('❌ No admin token found');
-          setLoading(false);
-          return;
-        }
+    const initFirebase = async () => {
+      console.log('🔥 Initializing Firestore...');
+      firestoreService.initialize();
 
-        const { io } = await import('socket.io-client');
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:7001';
-
-        const newSocket = io(socketUrl, {
-          auth: { token },
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-        });
-
-        newSocket.on('connect', () => {
-          console.log('✅ Connected to chat server:', newSocket.id);
-          setLoading(false);
-        });
-
-        newSocket.on('connect_error', (error) => {
-          console.error('❌ Socket connection error:', error.message);
-          setLoading(false);
-        });
-
-        newSocket.on('conversations_list', (conversationsList) => {
-          console.log('📋 Received conversations:', conversationsList.length);
-          console.log('📋 Conversations data:', conversationsList);
-          setConversations(conversationsList);
-        });
-
-        newSocket.on('new_message', (data) => {
-          const { message, conversation } = data;
-          
-          console.log('📨 New message received:', {
-            messageId: message._id,
-            conversationId: message.conversationId,
-            currentConversation: selectedConversationRef.current?.conversationId,
-            content: message.content.substring(0, 50)
-          });
-          
-          // ✅ FIX: Update temp conversation with real conversationId
-          if (selectedConversationRef.current?.conversationId.startsWith('user_') && 
-              message.conversationId !== selectedConversationRef.current?.conversationId) {
-            console.log('🔄 Updating temp conversation with real ID:', message.conversationId);
-            setSelectedConversation(prev => ({
-              ...prev,
-              conversationId: message.conversationId
-            }));
-          }
-          
-          if (selectedConversationRef.current?.conversationId === message.conversationId ||
-              selectedConversationRef.current?.conversationId.startsWith('user_')) {
-            console.log('✅ Message belongs to current conversation, adding to UI');
-            setMessages(prev => {
-              if (prev.some(m => m._id === message._id)) {
-                console.log('⚠️ Duplicate message, skipping');
-                return prev;
-              }
-              return [...prev, message];
-            });
-          } else {
-            console.log('📍 Message for different conversation:', message.conversationId);
-          }
-          
-          setConversations(prev => 
-            prev.map(conv => 
-              conv.conversationId === conversation.conversationId 
-                ? { ...conv, lastMessage: message, lastMessageAt: conversation.lastMessageAt }
-                : conv
-            )
-          );
-        });
-        
-
-        newSocket.on('conversation_joined', (data) => {
-          console.log('✅ Joined conversation:', data.conversation.conversationId);
-          console.log('📊 Loaded messages:', data.messages.length);
-          setMessages(data.messages);
-        });
-
-        newSocket.on('user_typing', (data) => {
-          if (data.conversationId === selectedConversationRef.current?.conversationId) {
-            setTypingUsers(prev => {
-              const newSet = new Set(prev);
-              if (data.isTyping) {
-                newSet.add(data.user.fullName);
-              } else {
-                newSet.delete(data.user.fullName);
-              }
-              return newSet;
-            });
-          }
-        });
-
-        newSocket.on('online_users_updated', (users) => {
-          console.log('👥 Online users updated:', users.length);
-          setOnlineUsers(users);
-        });
-
-        newSocket.on('message_sent', (data) => {
-          console.log('✅ Message sent confirmation received');
-          const { message, conversationId } = data;
-          
-          // ✅ FIX: Update temp conversation ID with real one
-          if (selectedConversationRef.current?.conversationId.startsWith('user_') && 
-              conversationId && conversationId !== selectedConversationRef.current?.conversationId) {
-            console.log('🔄 Updating conversation ID from temp to real:', conversationId);
-            
-            setSelectedConversation(prev => ({
-              ...prev,
-              conversationId: conversationId
-            }));
-            
-            // Leave old room and join new room
-            newSocket.emit('leave_conversation', { 
-              conversationId: selectedConversationRef.current?.conversationId 
-            });
-            newSocket.emit('join_conversation', { 
-              conversationId: conversationId 
-            });
-            
-            console.log('🚪 Switched to real conversation room:', conversationId);
-          }
-          
-          // Add the message if it's not already there
-          if (message && selectedConversationRef.current) {
-            setMessages(prev => {
-              if (prev.some(m => m._id === message._id)) {
-                return prev;
-              }
-              return [...prev, message];
-            });
-          }
-        });
-
-        setSocket(newSocket);
-
-        return () => {
-          console.log('🔌 Cleaning up socket connection');
-          newSocket.disconnect();
-        };
-      } catch (error) {
-        console.error('❌ Failed to initialize socket:', error);
+      // Get admin user info and token
+      const token = localStorage.getItem('adminToken');
+      const firebaseToken = localStorage.getItem('firebaseToken');
+      
+      if (!token) {
+        console.error('❌ No admin token found');
         setLoading(false);
+        return;
       }
+
+      setAdminToken(token);
+      
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.userId || payload._id || payload.id;
+        console.log('👤 Admin ID:', userId);
+        setAdminId(userId);
+
+        // Sign in with Firebase token from localStorage
+        if (firebaseToken) {
+          console.log('🔑 Firebase token found in storage, signing in...');
+          await firestoreService.signInWithToken(firebaseToken);
+          console.log('✅ Signed into Firebase Auth successfully!');
+        } else {
+          console.error('❌ No Firebase token found - Admin needs to re-login');
+          // You might want to redirect to login page here
+        }
+      } catch (error) {
+        console.error('❌ Error initializing Firebase:', error);
+      }
+
+      // Listen to all conversations in Firestore
+      const conversationsUnsubscribe = firestoreService.listenToConversations(
+        (firestoreConversations) => {
+          console.log('📋 Firestore conversations updated:', firestoreConversations.length);
+          setConversations(firestoreConversations);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('❌ Firestore error:', error);
+          console.error('❌ Error code:', error.code);
+          console.error('❌ This usually means Firebase Auth is not working or security rules are blocking access');
+          setLoading(false);
+        }
+      );
     };
 
-    initializeSocket();
+    initFirebase();
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🧹 Cleaning up Firestore listeners');
+      firestoreService.unsubscribeAll();
+    };
   }, []);
+
+  // Listen to messages in Firestore when conversation is selected
+  useEffect(() => {
+    if (!selectedConversation?.conversationId) {
+      setMessages([]);
+      return;
+    }
+
+    console.log('👂 Listening to messages for:', selectedConversation.conversationId);
+
+    // Unsubscribe from previous conversation's messages
+    firestoreService.unsubscribe(`messages_${selectedConversation.conversationId}`);
+
+    // Subscribe to new conversation's messages
+    const messagesUnsubscribe = firestoreService.listenToMessages(
+      selectedConversation.conversationId,
+      (firestoreMessages) => {
+        console.log('💬 Firestore messages updated:', firestoreMessages.length);
+        
+        // Transform Firestore messages to match our format
+        const formattedMessages = firestoreMessages.map(msg => ({
+          _id: msg._id || msg.id,
+          conversationId: selectedConversation.conversationId,
+          content: msg.content,
+          sender: { _id: msg.senderId },
+          senderType: msg.senderType,
+          messageType: msg.messageType || 'text',
+          createdAt: msg.createdAt,
+          readBy: msg.readBy || [],
+          status: msg.status || 'sent'
+        }));
+
+        setMessages(formattedMessages);
+
+        // Mark messages as read
+        if (adminId) {
+          firestoreService.markMessagesAsRead(
+            selectedConversation.conversationId,
+            adminId
+          );
+          
+          // Also mark as read in MongoDB via API
+          markMessagesReadAPI(selectedConversation.conversationId);
+        }
+      },
+      (error) => {
+        console.error('❌ Firestore messages error:', error);
+      }
+    );
+
+    return () => {
+      if (messagesUnsubscribe) {
+        messagesUnsubscribe();
+      }
+    };
+  }, [selectedConversation, adminId]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -215,6 +175,24 @@ function ChatPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Mark messages as read via REST API
+  const markMessagesReadAPI = async (conversationId) => {
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat/${conversationId}/read`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (error) {
+      console.error('❌ Error marking messages as read:', error);
+    }
+  };
+
   const searchUsers = async (query) => {
     if (!query.trim()) {
       setSearchedUsers([]);
@@ -223,12 +201,11 @@ function ChatPageContent() {
   
     setSearchingUsers(true);
     try {
-      const token = localStorage.getItem('adminToken');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/users?search=${encodeURIComponent(query)}&limit=10`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${adminToken}`,
             'Content-Type': 'application/json'
           }
         }
@@ -281,20 +258,11 @@ function ChatPageContent() {
         name: user.fullName,
         email: user.email
       });
-      
-      if (!socket) {
-        console.error('❌ No socket connection');
-        return;
-      }
-  
+
+      // Check if conversation exists in Firestore
       const existingConversation = conversations.find(conv => {
-        return conv.participants?.some(p => {
-          const pUserId = p.user?._id || p.user?.id || p.user;
-          return pUserId && (
-            pUserId === userId || 
-            pUserId.toString() === userId.toString()
-          );
-        });
+        return conv.participants?.includes(userId) || 
+               conv.mongoParticipants?.includes(userId);
       });
   
       if (existingConversation) {
@@ -304,30 +272,21 @@ function ChatPageContent() {
         return;
       }
   
+      // Create temp conversation
       const tempConversation = {
         conversationId: `user_${userId}`,
-        participants: [{
-          user: {
-            _id: userId,
-            id: userId,
-            fullName: user.fullName,
+        participants: [userId],
+        participantDetails: {
+          [userId]: {
+            name: user.fullName,
             email: user.email,
             profileImage: user.profileImage,
             userType: user.userType
           }
-        }],
-        participantUsers: [{
-          _id: userId,
-          id: userId,
-          fullName: user.fullName,
-          email: user.email,
-          profileImage: user.profileImage,
-          userType: user.userType
-        }],
+        },
         status: 'active',
         category: 'general',
         priority: 'normal',
-        unreadCounts: [],
         lastMessageAt: new Date()
       };
   
@@ -355,85 +314,74 @@ function ChatPageContent() {
     
     console.log('📂 Selecting conversation:', conversation.conversationId);
     
-    if (selectedConversation && socket) {
-      console.log('👋 Leaving previous conversation:', selectedConversation.conversationId);
-      socket.emit('leave_conversation', { 
-        conversationId: selectedConversation.conversationId 
-      });
-    }
-    
     setSelectedConversation(conversation);
-    setMessages([]);
-    setTypingUsers(new Set());
-    
-    if (socket) {
-      console.log('🚪 Joining conversation:', conversation.conversationId);
-      socket.emit('join_conversation', { 
-        conversationId: conversation.conversationId 
-      });
-    }
     
     if (isMobile) {
       setShowUserList(false);
     }
   };
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation || !socket) {
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || !adminToken) {
       console.log('⚠️ Cannot send message:', {
         hasContent: !!newMessage.trim(),
         hasConversation: !!selectedConversation,
-        hasSocket: !!socket
+        hasToken: !!adminToken
       });
       return;
     }
 
     const content = newMessage.trim();
-    console.log('📤 Sending message:', {
+    console.log('📤 Sending message via REST API:', {
       conversationId: selectedConversation.conversationId,
       contentLength: content.length
     });
 
     setSendingMessage(true);
     
-    socket.emit('send_message', {
-      conversationId: selectedConversation.conversationId,
-      content: content,
-      messageType: 'text'
-    });
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat/${selectedConversation.conversationId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content: content,
+            messageType: 'text'
+          })
+        }
+      );
 
-    setNewMessage('');
-    setSendingMessage(false);
-    
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Message sent successfully');
+        
+        // If conversation ID changed (from temp to real), update it
+        if (data.data?.conversation?.conversationId && 
+            data.data.conversation.conversationId !== selectedConversation.conversationId) {
+          console.log('🔄 Updating conversation ID:', data.data.conversation.conversationId);
+          setSelectedConversation(prev => ({
+            ...prev,
+            conversationId: data.data.conversation.conversationId
+          }));
+        }
+        
+        // Clear input
+        setNewMessage('');
+      } else {
+        console.error('❌ Failed to send message:', data.message);
+        alert('Failed to send message: ' + data.message);
+      }
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setSendingMessage(false);
     }
-    socket.emit('typing', { 
-      conversationId: selectedConversation.conversationId, 
-      isTyping: false 
-    });
-  };
-
-  const handleTyping = (e) => {
-    setNewMessage(e.target.value);
-    
-    if (!socket || !selectedConversation) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    socket.emit('typing', { 
-      conversationId: selectedConversation.conversationId, 
-      isTyping: true 
-    });
-
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('typing', { 
-        conversationId: selectedConversation.conversationId, 
-        isTyping: false 
-      });
-    }, 1000);
   };
 
   const handleKeyPress = (e) => {
@@ -471,30 +419,22 @@ function ChatPageContent() {
     });
   };
 
+  const getConversationUser = (conversation) => {
+    if (!conversation) return null;
+
+    // Get user from participantDetails
+    const userId = conversation.participants?.[0] || 
+                  conversation.mongoParticipants?.find(id => id !== adminId);
+    
+    return conversation.participantDetails?.[userId] || null;
+  };
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Connecting to chat server...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!socket) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <ChatBubbleOvalLeftEllipsisIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Chat Unavailable</h3>
-          <p className="text-gray-500 mb-4">Unable to connect to chat server</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            Retry Connection
-          </button>
+          <p className="text-gray-600">Connecting to Firestore...</p>
         </div>
       </div>
     );
@@ -549,9 +489,6 @@ function ChatPageContent() {
                 <div className="space-y-2">
                   {searchedUsers.map((user) => {
                     const userId = user.id || user._id;
-                    const isOnline = onlineUsers.some(ou => 
-                      ou.id === userId || ou.id?.toString() === userId?.toString()
-                    );
                     return (
                       <div
                         key={userId}
@@ -572,22 +509,12 @@ function ChatPageContent() {
                               </span>
                             </div>
                           )}
-                          {isOnline && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
-                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium text-gray-900 truncate">
                             {user.fullName || 'Unknown User'}
                           </h3>
                           <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                        </div>
-                        <div>
-                          {isOnline && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Online
-                            </span>
-                          )}
                         </div>
                       </div>
                     );
@@ -644,14 +571,13 @@ function ChatPageContent() {
             conversations
               .filter(conv => {
                 if (!searchQuery) return true;
-                const user = conv.participantUsers?.find(u => u.userType !== 'admin');
-                return user?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                const user = getConversationUser(conv);
+                return user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        user?.email?.toLowerCase().includes(searchQuery.toLowerCase());
               })
               .map((conversation) => {
-                const user = conversation.participantUsers?.find(u => u.userType !== 'admin');
+                const user = getConversationUser(conversation);
                 const isSelected = selectedConversation?.conversationId === conversation.conversationId;
-                const isOnline = onlineUsers.some(ou => ou.id === user?._id || ou.id === user?.id);
                 
                 return (
                   <div
@@ -666,25 +592,22 @@ function ChatPageContent() {
                         {user?.profileImage ? (
                           <img
                             src={user.profileImage}
-                            alt={user.fullName}
+                            alt={user.name}
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
                           <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-medium text-sm">
-                              {user?.fullName?.charAt(0) || 'U'}
+                              {user?.name?.charAt(0) || 'U'}
                             </span>
                           </div>
-                        )}
-                        {isOnline && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                         )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h3 className="text-sm font-medium text-gray-900 truncate">
-                            {user?.fullName || 'Unknown User'}
+                            {user?.name || 'Unknown User'}
                           </h3>
                           <span className="text-xs text-gray-500">
                             {formatTime(conversation.lastMessageAt)}
@@ -692,7 +615,7 @@ function ChatPageContent() {
                         </div>
                         
                         <p className="text-sm text-gray-600 truncate mt-1">
-                          {conversation.lastMessageData?.[0]?.content || 'No messages yet'}
+                          {conversation.lastMessage || 'No messages yet'}
                         </p>
                       </div>
                     </div>
@@ -723,31 +646,29 @@ function ChatPageContent() {
                   )}
                   
                   {(() => {
-                    const user = selectedConversation.participantUsers?.find(u => u.userType !== 'admin') ||
-                                selectedConversation.participants?.find(p => p.user)?.user;
-                    const isOnline = onlineUsers.some(ou => ou.id === user?._id || ou.id === user?.id);
+                    const user = getConversationUser(selectedConversation);
                     
                     return (
                       <div className="flex items-center space-x-3">
                         {user?.profileImage ? (
                           <img
                             src={user.profileImage}
-                            alt={user.fullName}
+                            alt={user.name}
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
                           <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-medium">
-                              {user?.fullName?.charAt(0) || 'U'}
+                              {user?.name?.charAt(0) || 'U'}
                             </span>
                           </div>
                         )}
                         <div>
                           <h2 className="text-lg font-semibold text-gray-900">
-                            {user?.fullName || 'Unknown User'}
+                            {user?.name || 'Unknown User'}
                           </h2>
                           <p className="text-sm text-gray-500">
-                            {isOnline ? 'Online' : 'Offline'}
+                            {user?.email || ''}
                           </p>
                         </div>
                       </div>
@@ -808,23 +729,6 @@ function ChatPageContent() {
                 })
               )}
 
-              {typingUsers.size > 0 && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg px-4 py-2">
-                    <div className="flex items-center space-x-1">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                      <span className="text-xs text-gray-500 ml-2">
-                        {Array.from(typingUsers).join(', ')} typing...
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div ref={messagesEndRef} />
             </div>
 
@@ -835,7 +739,7 @@ function ChatPageContent() {
                   <textarea
                     ref={messageInputRef}
                     value={newMessage}
-                    onChange={handleTyping}
+                    onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Type a message..."
                     rows={1}
