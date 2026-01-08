@@ -93,7 +93,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
       tourType: selectedTourType === 'all' ? undefined : selectedTourType,
       search: searchTerm || undefined,
       page: 1,
-      limit: 50
+      limit: 150
     };
 
     // Remove undefined values
@@ -231,7 +231,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
   
       // 6. Wait for database to fully commit
       console.log('⏳ Waiting for database to commit...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 11000));
   
       // 7. 🔥 Fetch fresh data and GET THE RETURNED ARRAY
       console.log('🔄 Fetching fresh tour data...');
@@ -247,7 +247,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
         if (updatedTour && updatedTour.status !== action) {
           console.warn('⚠️ Tour status mismatch! Expected:', action, 'Got:', updatedTour.status);
           // Wait a bit more and try again
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 11000));
           const retryFreshTours = await fetchTours(true, true);
           if (retryFreshTours && Array.isArray(retryFreshTours)) {
             const retryTour = retryFreshTours.find(t => t._id === tourId);
@@ -315,7 +315,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
       // Refresh tours list
       setTimeout(() => {
         fetchTours(false);
-      }, 500);
+      }, 1000);
 
     } catch (error) {
       console.error('Error deleting tour:', error);
@@ -376,7 +376,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     const normalizedType = normalizeTourType(tour.tourType);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-100 flex items-center justify-center z-100 p-2 sm:p-4">
         <div className="bg-white rounded-2xl sm:rounded-3xl max-w-7xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
           <div className="sticky top-0 bg-white p-4 sm:p-6 border-b border-gray-200 z-10">
             <div className="flex items-center justify-between">
@@ -435,7 +435,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                         </div>
                       )}
                       {image.originalName && (
-                        <p className="text-xs text-gray-500 mt-1 truncate" title={image.originalName}>
+                        <p className="text-xs text-gray-1000 mt-1 truncate" title={image.originalName}>
                           {image.originalName}
                         </p>
                       )}
@@ -445,7 +445,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
               </div>
             )}
             {/* Tour Header with Tour Type */}
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+            <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-4 sm:space-y-0">
                 <div className="flex-1 min-w-0 w-full">
                   <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words" style={{ fontFamily: 'Jost, sans-serif' }}>
@@ -466,7 +466,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                       </span>
                     )}
                     <div className="flex items-center bg-white px-2 sm:px-3 py-1 rounded-full">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      <div className="w-2 h-2 bg-green-1000 rounded-full mr-2"></div>
                       <span className="text-xs sm:text-sm font-medium">{tour.completionPercentage || 0}% Complete</span>
                     </div>
                   </div>
@@ -516,7 +516,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                 Tour Guide
               </h4>
               <div className="flex items-center mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-indigo-1000 to-purple-600 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
                   <span className="text-white font-bold text-sm sm:text-base">
                     {tour.guideId?.fullName?.split(' ').map(n => n[0]).join('') || 'G'}
                   </span>
@@ -527,11 +527,11 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                   </p>
                   <p className="text-xs sm:text-sm text-gray-600 truncate">{tour.guideId?.email}</p>
                   <div className="flex items-center mt-1">
-                    <MapPinIcon className="w-4 h-4 text-gray-500 mr-1" />
+                    <MapPinIcon className="w-4 h-4 text-gray-1000 mr-1" />
                     <span className="text-sm text-gray-600">{tour.guideId?.city}</span>
                     {tour.guideId?.rating > 0 && (
                       <>
-                        <StarIcon className="w-4 h-4 text-yellow-500 ml-3 mr-1" />
+                        <StarIcon className="w-4 h-4 text-yellow-1000 ml-3 mr-1" />
                         <span className="text-sm text-gray-600">{tour.guideId.rating} ({tour.guideId.totalReviews || 0})</span>
                       </>
                     )}
@@ -549,7 +549,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {tour.location.country && (
                     <div className="flex items-center">
-                      <GlobeAltIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <GlobeAltIcon className="w-5 h-5 text-gray-1000 mr-2" />
                       <div>
                         <p className="text-sm text-gray-600">Country</p>
                         <p className="font-medium">{tour.location.country}</p>
@@ -558,7 +558,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                   )}
                   {tour.location.city && (
                     <div className="flex items-center">
-                      <BuildingOfficeIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <BuildingOfficeIcon className="w-5 h-5 text-gray-1000 mr-2" />
                       <div>
                         <p className="text-sm text-gray-600">City</p>
                         <p className="font-medium">{tour.location.city}</p>
@@ -567,7 +567,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                   )}
                   {tour.location.area && (
                     <div className="flex items-center">
-                      <MapPinIcon className="w-5 h-5 text-gray-500 mr-2" />
+                      <MapPinIcon className="w-5 h-5 text-gray-1000 mr-2" />
                       <div>
                         <p className="text-sm text-gray-600">Area</p>
                         <p className="font-medium">{tour.location.area}</p>
@@ -633,7 +633,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500 italic">No start dates specified</p>
+                      <p className="text-gray-1000 italic">No start dates specified</p>
                     )}
                   </div>
                 )}
@@ -642,7 +642,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
 
             {/* Package Details Section (Only for Package Tours) */}
             {normalizedType === 'package' && tour.packageDetails && (
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl sm:rounded-2xl p-4 sm:p-6">
                 <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'Jost, sans-serif' }}>
                   Package Details
                 </h4>
@@ -731,7 +731,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                       <div className="space-y-1">
                         {tour.packageDetails.packageInclusions.map((inclusion, index) => (
                           <div key={index} className="flex items-center text-sm text-green-700">
-                            <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" />
+                            <CheckCircleIcon className="w-4 h-4 mr-2 text-green-1000" />
                             {inclusion}
                           </div>
                         ))}
@@ -748,7 +748,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                       <div className="space-y-1">
                         {tour.packageDetails.packageExclusions.map((exclusion, index) => (
                           <div key={index} className="flex items-center text-sm text-red-700">
-                            <XCircleIcon className="w-4 h-4 mr-2 text-red-500" />
+                            <XCircleIcon className="w-4 h-4 mr-2 text-red-1000" />
                             {exclusion}
                           </div>
                         ))}

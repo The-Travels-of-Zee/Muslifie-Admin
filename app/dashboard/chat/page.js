@@ -1,4 +1,4 @@
-// app/dashboard/chat/page.js
+// app/dashboard/chat/page.js - UPDATED TO USE TOUR PATTERN
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layout';
@@ -35,12 +35,6 @@ function ChatPageContent() {
   const messagesEndRef = useRef(null);
   const messageInputRef = useRef(null);
   const searchTimeoutRef = useRef(null);
-  
-  const selectedConversationRef = useRef(null);
-
-  useEffect(() => {
-    selectedConversationRef.current = selectedConversation;
-  }, [selectedConversation]);
 
   // Initialize Firebase Firestore and get admin info
   useEffect(() => {
@@ -48,7 +42,6 @@ function ChatPageContent() {
       console.log('🔥 Initializing Firestore...');
       firestoreService.initialize();
 
-      // Get admin user info and token
       const token = localStorage.getItem('adminToken');
       const firebaseToken = localStorage.getItem('firebaseToken');
       
@@ -66,21 +59,19 @@ function ChatPageContent() {
         console.log('👤 Admin ID:', userId);
         setAdminId(userId);
 
-        // Sign in with Firebase token from localStorage
         if (firebaseToken) {
-          console.log('🔑 Firebase token found in storage, signing in...');
+          console.log('🔑 Firebase token found, signing in...');
           await firestoreService.signInWithToken(firebaseToken);
           console.log('✅ Signed into Firebase Auth successfully!');
         } else {
           console.error('❌ No Firebase token found - Admin needs to re-login');
-          // You might want to redirect to login page here
         }
       } catch (error) {
         console.error('❌ Error initializing Firebase:', error);
       }
 
-      // Listen to all conversations in Firestore
-      const conversationsUnsubscribe = firestoreService.listenToConversations(
+      // Listen to conversations in Firestore
+      firestoreService.listenToConversations(
         (firestoreConversations) => {
           console.log('📋 Firestore conversations updated:', firestoreConversations.length);
           setConversations(firestoreConversations);
@@ -88,8 +79,6 @@ function ChatPageContent() {
         },
         (error) => {
           console.error('❌ Firestore error:', error);
-          console.error('❌ Error code:', error.code);
-          console.error('❌ This usually means Firebase Auth is not working or security rules are blocking access');
           setLoading(false);
         }
       );
@@ -97,7 +86,6 @@ function ChatPageContent() {
 
     initFirebase();
 
-    // Cleanup on unmount
     return () => {
       console.log('🧹 Cleaning up Firestore listeners');
       firestoreService.unsubscribeAll();
@@ -113,16 +101,13 @@ function ChatPageContent() {
 
     console.log('👂 Listening to messages for:', selectedConversation.conversationId);
 
-    // Unsubscribe from previous conversation's messages
     firestoreService.unsubscribe(`messages_${selectedConversation.conversationId}`);
 
-    // Subscribe to new conversation's messages
     const messagesUnsubscribe = firestoreService.listenToMessages(
       selectedConversation.conversationId,
       (firestoreMessages) => {
         console.log('💬 Firestore messages updated:', firestoreMessages.length);
         
-        // Transform Firestore messages to match our format
         const formattedMessages = firestoreMessages.map(msg => ({
           _id: msg._id || msg.id,
           conversationId: selectedConversation.conversationId,
@@ -137,14 +122,12 @@ function ChatPageContent() {
 
         setMessages(formattedMessages);
 
-        // Mark messages as read
         if (adminId) {
           firestoreService.markMessagesAsRead(
             selectedConversation.conversationId,
             adminId
           );
           
-          // Also mark as read in MongoDB via API
           markMessagesReadAPI(selectedConversation.conversationId);
         }
       },
@@ -175,7 +158,6 @@ function ChatPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Mark messages as read via REST API
   const markMessagesReadAPI = async (conversationId) => {
     try {
       await fetch(
@@ -243,6 +225,7 @@ function ChatPageContent() {
     }, 300);
   };
 
+  // ✅ UPDATED: Use tour pattern - create conversation first
   const startConversationWithUser = async (user) => {
     try {
       const userId = user.id || user._id;
@@ -259,46 +242,66 @@ function ChatPageContent() {
         email: user.email
       });
 
-      // Check if conversation exists in Firestore
-      const existingConversation = conversations.find(conv => {
-        return conv.participants?.includes(userId) || 
-               conv.mongoParticipants?.includes(userId);
-      });
-  
-      if (existingConversation) {
-        console.log('✅ Found existing conversation:', existingConversation.conversationId);
-        selectConversation(existingConversation);
+      // ✅ NEW: Create conversation using API (like tour chat)
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/admin-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: userId // User to chat with
+          })
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Conversation created/found:', data.data.conversation.conversationId);
+        
+        // Wait a moment for Firestore to sync
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Find the conversation in our state (Firestore should have updated)
+        const conversation = conversations.find(
+          c => c.conversationId === data.data.conversation.conversationId
+        );
+        
+        if (conversation) {
+          selectConversation(conversation);
+        } else {
+          // If not in state yet, create a temp one and wait for Firestore
+          const tempConversation = {
+            conversationId: data.data.conversation.conversationId,
+            participants: [userId, adminId],
+            participantDetails: {
+              [userId]: {
+                name: user.fullName,
+                email: user.email,
+                profileImage: user.profileImage,
+                userType: user.userType
+              }
+            },
+            status: 'active',
+            category: 'support',
+            lastMessageAt: new Date()
+          };
+          
+          selectConversation(tempConversation);
+        }
+        
         setShowUserSearch(false);
-        return;
+        
+        setTimeout(() => {
+          messageInputRef.current?.focus();
+        }, 100);
+      } else {
+        console.error('❌ Failed to create conversation:', data.message);
+        alert('Failed to create conversation: ' + data.message);
       }
-  
-      // Create temp conversation
-      const tempConversation = {
-        conversationId: `user_${userId}`,
-        participants: [userId],
-        participantDetails: {
-          [userId]: {
-            name: user.fullName,
-            email: user.email,
-            profileImage: user.profileImage,
-            userType: user.userType
-          }
-        },
-        status: 'active',
-        category: 'general',
-        priority: 'normal',
-        lastMessageAt: new Date()
-      };
-  
-      console.log('📝 Created temp conversation:', tempConversation.conversationId);
-  
-      setSelectedConversation(tempConversation);
-      setMessages([]);
-      setShowUserSearch(false);
-  
-      setTimeout(() => {
-        messageInputRef.current?.focus();
-      }, 100);
   
     } catch (error) {
       console.error('❌ Error starting conversation:', error);
@@ -332,7 +335,7 @@ function ChatPageContent() {
     }
 
     const content = newMessage.trim();
-    console.log('📤 Sending message via REST API:', {
+    console.log('📤 Sending message:', {
       conversationId: selectedConversation.conversationId,
       contentLength: content.length
     });
@@ -359,18 +362,6 @@ function ChatPageContent() {
       
       if (data.success) {
         console.log('✅ Message sent successfully');
-        
-        // If conversation ID changed (from temp to real), update it
-        if (data.data?.conversation?.conversationId && 
-            data.data.conversation.conversationId !== selectedConversation.conversationId) {
-          console.log('🔄 Updating conversation ID:', data.data.conversation.conversationId);
-          setSelectedConversation(prev => ({
-            ...prev,
-            conversationId: data.data.conversation.conversationId
-          }));
-        }
-        
-        // Clear input
         setNewMessage('');
       } else {
         console.error('❌ Failed to send message:', data.message);
@@ -422,7 +413,6 @@ function ChatPageContent() {
   const getConversationUser = (conversation) => {
     if (!conversation) return null;
 
-    // Get user from participantDetails
     const userId = conversation.participants?.[0] || 
                   conversation.mongoParticipants?.find(id => id !== adminId);
     
