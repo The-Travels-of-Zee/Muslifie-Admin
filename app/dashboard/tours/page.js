@@ -376,7 +376,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     const normalizedType = normalizeTourType(tour.tourType);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-100 flex items-center justify-center z-100 p-2 sm:p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-6">
         <div className="bg-white rounded-2xl sm:rounded-3xl max-w-7xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
           <div className="sticky top-0 bg-white p-4 sm:p-6 border-b border-gray-200 z-10">
             <div className="flex items-center justify-between">
