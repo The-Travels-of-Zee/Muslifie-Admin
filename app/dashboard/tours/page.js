@@ -36,8 +36,12 @@ import {
   PhoneIcon,
   BriefcaseIcon,
   LightBulbIcon,
-  TrashIcon
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+
 import apiService from '../../../lib/apiService';
 
 const ToursManagement = () => {
@@ -47,6 +51,10 @@ const ToursManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTour, setSelectedTour] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
+
+  // Full screen image viewer state
+  const [fullScreenImages, setFullScreenImages] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Real state management
   const [tours, setTours] = useState([]);
@@ -80,52 +88,50 @@ const ToursManagement = () => {
   };
 
   // Fetch tours with tourType filter
-  // In ToursManagement component
-const fetchTours = async (showLoading = true, forceRefresh = false) => {
-  try {
-    if (showLoading) {
-      setLoading(true);
+  const fetchTours = async (showLoading = true, forceRefresh = false) => {
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+
+      const filters = {
+        status: selectedFilter === 'all' ? undefined : selectedFilter,
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        tourType: selectedTourType === 'all' ? undefined : selectedTourType,
+        search: searchTerm || undefined,
+        page: 1,
+        limit: 150
+      };
+
+      // Remove undefined values
+      Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+      const response = await apiService.getTours(filters, { forceRefresh });
+
+      setTours(response.data.tours);
+      setPagination(response.data.pagination);
+
+      // Calculate stats
+      const allTours = response.data.tours;
+      setStats({
+        pending: allTours.filter(t => t.status === 'pending_review').length,
+        active: allTours.filter(t => t.status === 'active').length,
+        rejected: allTours.filter(t => t.status === 'rejected').length,
+        total: allTours.length,
+        packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
+        dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
+      });
+
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching tours:', error);
+      setError('Failed to load tours. Please try again.');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
     }
-
-    const filters = {
-      status: selectedFilter === 'all' ? undefined : selectedFilter,
-      category: selectedCategory === 'all' ? undefined : selectedCategory,
-      tourType: selectedTourType === 'all' ? undefined : selectedTourType,
-      search: searchTerm || undefined,
-      page: 1,
-      limit: 150
-    };
-
-    // Remove undefined values
-    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
-
-    // 🔥 PASS forceRefresh option
-    const response = await apiService.getTours(filters, { forceRefresh });
-
-    setTours(response.data.tours);
-    setPagination(response.data.pagination);
-
-    // Calculate stats...
-    const allTours = response.data.tours;
-    setStats({
-      pending: allTours.filter(t => t.status === 'pending_review').length,
-      active: allTours.filter(t => t.status === 'active').length,
-      rejected: allTours.filter(t => t.status === 'rejected').length,
-      total: allTours.length,
-      packages: allTours.filter(t => normalizeTourType(t.tourType) === 'package').length,
-      dayTrips: allTours.filter(t => normalizeTourType(t.tourType) === 'day_trip').length
-    });
-
-    setError(null);
-  } catch (error) {
-    console.error('Error fetching tours:', error);
-    setError('Failed to load tours. Please try again.');
-  } finally {
-    if (showLoading) {
-      setLoading(false);
-    }
-  }
-};
+  };
 
   // Initial load and filter updates
   useEffect(() => {
@@ -138,6 +144,45 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [selectedFilter, selectedCategory, selectedTourType, searchTerm]);
+
+  // Full Screen Image Viewer Functions
+  const openFullScreen = (images, index) => {
+    setFullScreenImages(images);
+    setCurrentImageIndex(index);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeFullScreen = () => {
+    setFullScreenImages(null);
+    setCurrentImageIndex(0);
+    document.body.style.overflow = 'unset';
+  };
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === fullScreenImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? fullScreenImages.length - 1 : prev - 1
+    );
+  };
+
+  // Keyboard controls for full screen viewer
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!fullScreenImages) return;
+      
+      if (e.key === 'Escape') closeFullScreen();
+      if (e.key === 'ArrowRight') nextImage();
+      if (e.key === 'ArrowLeft') prevImage();
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [fullScreenImages, currentImageIndex]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -209,59 +254,28 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     try {
       console.log('🔄 Starting tour status update:', { tourId, action });
   
-      // 1. Call backend first
       const updateResponse = await apiService.updateTourStatus(tourId, action, data.reviewNotes);
       console.log('✅ Backend update response:', updateResponse);
   
-      // 2. Verify the update was successful
       if (!updateResponse.success) {
         throw new Error(updateResponse.message || 'Failed to update tour status');
       }
   
-      // 3. Clear caches
       apiService.invalidateCache('/admin/tours');
       apiService.invalidateCache('/admin/verifications');
       apiService.invalidateCache('/admin/analytics');
   
-      // 4. Show loading state
       setLoading(true);
-  
-      // 5. Close modal
       setSelectedTour(null);
   
-      // 6. Wait for database to fully commit
       console.log('⏳ Waiting for database to commit...');
-      await new Promise(resolve => setTimeout(resolve, 11000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
   
-      // 7. 🔥 Fetch fresh data and GET THE RETURNED ARRAY
       console.log('🔄 Fetching fresh tour data...');
-      const freshTours = await fetchTours(true, true);
-      
-      console.log('📦 Fresh tours received:', freshTours?.length || 0);
+      await fetchTours(true, true);
   
-      // 8. 🔥 Verify using FRESH DATA (with safety check)
-      if (freshTours && Array.isArray(freshTours) && freshTours.length > 0) {
-        const updatedTour = freshTours.find(t => t._id === tourId);
-        console.log('🔍 Verifying updated tour from FRESH data:', updatedTour);
-  
-        if (updatedTour && updatedTour.status !== action) {
-          console.warn('⚠️ Tour status mismatch! Expected:', action, 'Got:', updatedTour.status);
-          // Wait a bit more and try again
-          await new Promise(resolve => setTimeout(resolve, 11000));
-          const retryFreshTours = await fetchTours(true, true);
-          if (retryFreshTours && Array.isArray(retryFreshTours)) {
-            const retryTour = retryFreshTours.find(t => t._id === tourId);
-            console.log('🔄 Retry verification:', retryTour?.status);
-          }
-        }
-      } else {
-        console.warn('⚠️ Fresh tours data is empty or invalid');
-      }
-  
-      // 9. Show success message
       alert(`Tour status changed to ${action} successfully!`);
   
-      // 10. Trigger window event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('tourStatusChanged', {
           detail: { tourId, oldStatus: null, newStatus: action }
@@ -272,7 +286,6 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
       console.error('❌ Error updating tour status:', error);
       alert(`Failed to update tour status: ${error.message || 'Please try again.'}`);
       
-      // Try to refresh anyway to show current state
       setLoading(true);
       await fetchTours(true, true);
     } finally {
@@ -286,10 +299,8 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
     try {
       await apiService.deleteTour(tourId, deleteReason);
 
-      // Remove tour from state
       setTours(prevTours => prevTours.filter(tour => tour._id !== tourId));
 
-      // Update stats
       setStats(prevStats => {
         const newStats = { ...prevStats };
         const tour = tours.find(t => t._id === tourId);
@@ -312,7 +323,6 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
       setSelectedTour(null);
       alert('Tour deleted successfully!');
 
-      // Refresh tours list
       setTimeout(() => {
         fetchTours(false);
       }, 1000);
@@ -327,6 +337,88 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
 
   const viewDetails = async (tour) => {
     setSelectedTour(tour);
+  };
+
+  // Full Screen Image Viewer Component
+  const FullScreenImageViewer = () => {
+    if (!fullScreenImages || fullScreenImages.length === 0) return null;
+
+    const currentImage = fullScreenImages[currentImageIndex];
+
+    return (
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-95 z-[99999] flex items-center justify-center"
+        onClick={closeFullScreen}
+      >
+        {/* Close Button */}
+        <button
+          onClick={closeFullScreen}
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 sm:p-3 rounded-full transition-all z-10"
+        >
+          <XMarkIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+        </button>
+
+        {/* Image Counter */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white bg-opacity-20 text-white px-4 py-2 rounded-full text-sm font-medium z-10">
+          {currentImageIndex + 1} / {fullScreenImages.length}
+        </div>
+
+        {/* Previous Button */}
+        {fullScreenImages.length > 1 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              prevImage();
+            }}
+            className="absolute left-2 sm:left-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 sm:p-3 rounded-full transition-all z-10"
+          >
+            <ChevronLeftIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+        )}
+
+        {/* Main Image */}
+        <div 
+          className="relative max-w-[90vw] max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            src={currentImage.url}
+            alt={currentImage.originalName || `Image ${currentImageIndex + 1}`}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+          />
+          
+          {/* Image Info */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white px-4 py-3 rounded-b-lg">
+            <p className="text-sm font-medium truncate">
+              {currentImage.originalName || `Tour Image ${currentImageIndex + 1}`}
+            </p>
+            {currentImage.isCover && (
+              <span className="inline-block bg-indigo-600 px-2 py-1 rounded text-xs mt-1">
+                Cover Image
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Next Button */}
+        {fullScreenImages.length > 1 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              nextImage();
+            }}
+            className="absolute right-2 sm:right-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 sm:p-3 rounded-full transition-all z-10"
+          >
+            <ChevronRightIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+        )}
+
+        {/* Keyboard Hints */}
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-20 text-white px-3 py-2 rounded-lg text-xs hidden sm:block">
+          <p>← → Navigate | ESC Close</p>
+        </div>
+      </div>
+    );
   };
 
   // Tour Modal with comprehensive tour information
@@ -393,8 +485,8 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
           </div>
 
           <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-             {/* Tour Images Gallery */}
-             {tour.images && tour.images.length > 0 && (
+            {/* Tour Images Gallery */}
+            {tour.images && tour.images.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
                 <h4 className="text-base sm:text-lg font-bold text-gray-900 mb-4 flex items-center" style={{ fontFamily: 'Jost, sans-serif' }}>
                   <PhotoIcon className="w-5 h-5 mr-2 text-indigo-600" />
@@ -405,12 +497,20 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                 {tour.images.find(img => img.isCover) && (
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-2 font-medium">Cover Image</p>
-                    <div className="relative rounded-xl overflow-hidden border-2 border-indigo-300">
+                    <div 
+                      className="relative rounded-xl overflow-hidden border-2 border-indigo-300 cursor-pointer group"
+                      onClick={() => openFullScreen(tour.images, tour.images.findIndex(img => img.isCover))}
+                    >
                       <img
                         src={tour.images.find(img => img.isCover).url}
                         alt="Cover"
-                        className="w-full h-64 sm:h-96 object-cover"
+                        className="w-full h-64 sm:h-96 object-cover transition-transform duration-300 group-hover:scale-105"
                       />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                        <div className="bg-white bg-opacity-90 p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <EyeIcon className="w-6 h-6 text-indigo-600" />
+                        </div>
+                      </div>
                       <div className="absolute top-2 right-2 bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
                         Cover
                       </div>
@@ -421,13 +521,23 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                 {/* Image Gallery */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                   {tour.images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-indigo-400 transition-colors">
+                    <div 
+                      key={index} 
+                      className="relative group cursor-pointer"
+                      onClick={() => openFullScreen(tour.images, index)}
+                    >
+                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-indigo-400 transition-all">
                         <img
                           src={image.url}
                           alt={image.originalName || `Tour image ${index + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
+                          <div className="bg-white bg-opacity-90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <EyeIcon className="w-5 h-5 text-indigo-600" />
+                          </div>
+                        </div>
                       </div>
                       {image.isCover && (
                         <div className="absolute top-1 right-1 bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-medium">
@@ -444,6 +554,7 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
                 </div>
               </div>
             )}
+
             {/* Tour Header with Tour Type */}
             <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-4 sm:space-y-0">
@@ -1544,6 +1655,9 @@ const fetchTours = async (showLoading = true, forceRefresh = false) => {
           onClose={() => setSelectedTour(null)}
         />
       )}
+
+      {/* Full Screen Image Viewer */}
+      <FullScreenImageViewer />
     </div>
   );
 };
